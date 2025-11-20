@@ -23,7 +23,8 @@ export function pixelToMm(
 /**
  * 방 크기에 맞는 스케일 및 사각형 위치 계산 (PRD 기준)
  * - 파란 사각형: 고정된 외곽 프레임
- * - 빨간 사각형: 폭만 변하고 높이는 고정
+ * - 빨간 사각형: 방 크기에 따라 시각적으로 커지거나 작아짐
+ * - scaleX는 고정되어 내부 요소들의 시각적 거리는 유지됨
  */
 export function calculateScale(
   canvasWidth: number,
@@ -41,27 +42,31 @@ export function calculateScale(
   // 빨간 사각형 높이는 고정 (캔버스 높이의 60% 정도)
   const FIXED_RED_HEIGHT = canvasHeight * 0.6;
   
-  // 스케일 계산
+  // scaleX를 고정값으로 설정 (기본 방 크기 기준)
+  // 기본 방 크기(DEFAULT_ROOM.roomWidthMm = 5000mm)가 파란 네모의 70%를 차지하도록 설정
+  const DEFAULT_ROOM_WIDTH_MM = 5000;
   const marginFactor = 0.7; // 파란 사각형 안에 여백을 남김
-  
-  // scaleX: 폭용 스케일 (roomWidthMm에 따라 변함)
-  const scaleX = (blueWidth * marginFactor) / roomWidthMm;
+  const scaleX = (blueWidth * marginFactor) / DEFAULT_ROOM_WIDTH_MM;
   
   // scaleY: 높이용 스케일 (roomHeightMm 기준으로 고정, 폭 변경과 무관)
   const scaleY = FIXED_RED_HEIGHT / roomHeightMm;
   
-  // 빨간 사각형 크기 계산
+  // 빨간 사각형 크기 계산 (방 크기에 따라 시각적으로 커지거나 작아짐)
   const redWidthPx = roomWidthMm * scaleX;
   const redHeightPx = roomHeightMm * scaleY;  // 또는 FIXED_RED_HEIGHT와 동일
+  
+  // 빨간 사각형이 파란 사각형을 벗어나지 않도록 제한
+  const maxRedWidth = blueWidth * 0.95; // 파란 네모의 95%를 넘지 않도록
+  const constrainedRedWidth = Math.min(redWidthPx, maxRedWidth);
   
   // 빨간 사각형 위치 (파란 사각형 기준 중앙 정렬)
   const blueCenterX = blueX + blueWidth / 2;
   const blueCenterY = blueY + blueHeight / 2;
-  const redX = blueCenterX - redWidthPx / 2;
+  const redX = blueCenterX - constrainedRedWidth / 2;
   const redY = blueCenterY - redHeightPx / 2;
   
   return {
-    scaleX,
+    scaleX, // 고정된 scaleX 사용
     scaleY,
     blueRect: {
       x: blueX,
@@ -72,7 +77,7 @@ export function calculateScale(
     redRect: {
       x: redX,
       y: redY,
-      width: redWidthPx,
+      width: constrainedRedWidth,
       height: redHeightPx,
     },
   };
