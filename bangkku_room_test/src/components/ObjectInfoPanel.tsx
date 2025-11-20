@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pillar, Shelf } from '../types';
 
 interface ObjectInfoPanelProps {
@@ -20,6 +20,40 @@ export const ObjectInfoPanel: React.FC<ObjectInfoPanelProps> = ({
   onClose,
   onDelete,
 }) => {
+  // 선반 이미지 로드
+  const [shelfImages, setShelfImages] = useState<{
+    normal: HTMLImageElement | null;
+    drawer: HTMLImageElement | null;
+    hanger: HTMLImageElement | null;
+  }>({
+    normal: null,
+    drawer: null,
+    hanger: null,
+  });
+
+  useEffect(() => {
+    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+
+    Promise.all([
+      loadImage(new URL('../images/pillar/일반_선반.png', import.meta.url).href),
+      loadImage(new URL('../images/pillar/서랍_선반.png', import.meta.url).href),
+      loadImage(new URL('../images/pillar/옷걸이_선반.png', import.meta.url).href),
+    ]).then(([normalImg, drawerImg, hangerImg]) => {
+      setShelfImages({
+        normal: normalImg,
+        drawer: drawerImg,
+        hanger: hangerImg,
+      });
+    }).catch(console.error);
+  }, []);
+
   const isPillar = selectedType === 'pillar' && pillar;
   const isShelf = selectedType === 'shelf' && shelf;
   const hasSelection = !!selectedType && !!selectedId && (isPillar || isShelf);
@@ -57,9 +91,23 @@ export const ObjectInfoPanel: React.FC<ObjectInfoPanelProps> = ({
             <div style={styles.pillarBar} />
           </div>
         )}
-        {isShelf && (
+        {isShelf && shelf && (
           <div style={styles.shelfImage}>
-            <div style={styles.shelfBar} />
+            {(() => {
+              const shelfType = shelf.type || 'normal';
+              const shelfImage = shelfImages[shelfType];
+              if (shelfImage && shelfImage.complete) {
+                return (
+                  <img
+                    src={shelfImage.src}
+                    alt={`${shelfType} 선반`}
+                    style={styles.shelfImageElement}
+                  />
+                );
+              }
+              // 폴백: 기존 스타일
+              return <div style={styles.shelfBar} />;
+            })()}
           </div>
         )}
         {!hasSelection && (
@@ -208,6 +256,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: '40px',
     backgroundColor: '#CD853F',
     borderRadius: '4px',
+  },
+  shelfImageElement: {
+    width: '80%',
+    height: 'auto',
+    maxHeight: '100%',
+    objectFit: 'contain',
   },
   placeholderImage: {
     width: '100%',

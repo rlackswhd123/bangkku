@@ -26,6 +26,8 @@ export interface Pillar {
   id: string;
   xMm: number;  // 방 왼쪽 벽 기준 x 위치 (mm)
   type: 'wall' | 'normal';  // 벽 기둥 vs 일반 기둥
+  cornerPillar?: boolean;  // 코너장 기둥 여부
+  pillarStyle?: 'rear-single' | 'center-single' | 'dual';  // 기둥 스타일: 후면 싱글, 센터 싱글, 듀얼
 }
 
 // 선반 타입 (PRD 기준)
@@ -34,6 +36,8 @@ export interface Shelf {
   startPillarId: string;  // 시작 기둥 ID
   endPillarId: string;    // 끝 기둥 ID
   heightMm: number;       // 바닥 기준 높이 (mm)
+  type: 'normal' | 'hanger' | 'drawer';  // 선반 종류: 일반, 옷걸이, 서랍
+  cornerShelf?: boolean;  // 코너장 여부
 }
 
 // 드래그 상태 타입
@@ -58,7 +62,7 @@ export const ROOM_CONSTRAINTS = {
 
 // 기둥/선반 제약
 export const PILLAR_SHELF_CONSTRAINTS = {
-  PILLAR_WIDTH_PX: 20,        // 기둥 폭 (px, 고정)
+  PILLAR_WIDTH_PX: 10,        // 기둥 폭 (px, 고정)
   MIN_PILLAR_SPACING_MM: 400, // 기둥 간 최소 간격 (mm)
   MAX_PILLAR_SPACING_MM: 1000, // 기둥 간 최대 간격 (mm)
   MIN_SHELF_SPACING_MM: 300,  // 선반 간 최소 간격 (mm)
