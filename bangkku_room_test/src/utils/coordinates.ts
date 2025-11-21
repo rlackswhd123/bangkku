@@ -1,4 +1,5 @@
-import { ScaleInfo, WallRect, ROOM_CONSTRAINTS } from '../types';
+// coordinates.ts: mm↔px 변환, 스케일 계산, 그리드 스냅 유틸리티
+import { ScaleInfo } from '../types';
 
 /**
  * mm 좌표를 화면 픽셀 좌표로 변환

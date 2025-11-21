@@ -1,3 +1,4 @@
+// skeleton.ts: 방 외곽(파란/빨간 프레임)과 안내선을 그립니다.
 import { RoomState, ScaleInfo } from '../../../../types';
 
 export function drawSkeletonRoom(

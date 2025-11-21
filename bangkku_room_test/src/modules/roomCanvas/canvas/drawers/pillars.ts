@@ -1,3 +1,4 @@
+// pillars.ts: 기둥 본체 및 고스트 기둥을 캔버스에 그리는 함수 모음
 import { Pillar, ScaleInfo } from '../../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../../types';
 import { mmToPxX } from '../../../../utils/coordinates';

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+// useImageAssets.ts: 코너/선반 PNG 리소스를 비동기로 로드해 공유하는 훅
+import { ref, onMounted } from 'vue';
 
 type CornerImageKey = 111 | 222 | 333 | 444;
 type ShelfImageKey = 'normal' | 'drawer' | 'hanger';
@@ -26,11 +27,15 @@ const CORNER_IMAGE_PATHS: Record<CornerImageKey, string> = {
   444: new URL('../../../images/corner/444.png', import.meta.url).href,
 };
 
+const CORNER_IMAGE_KEYS: CornerImageKey[] = [111, 222, 333, 444];
+
 const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string> = {
   normal: new URL('../../../images/pillar/일반_선반.png', import.meta.url).href,
   drawer: new URL('../../../images/pillar/서랍_선반.png', import.meta.url).href,
   hanger: new URL('../../../images/pillar/옷걸이_선반.png', import.meta.url).href,
 };
+
+const SHELF_IMAGE_KEYS: ShelfImageKey[] = ['normal', 'drawer', 'hanger'];
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -40,13 +45,16 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
+/**
+ * 코너/선반 PNG 리소스를 사전에 로드해 캔버스 렌더와 패널에서 공유합니다.
+ */
 export function useImageAssets() {
-  const [cornerImages, setCornerImages] = useState<CornerImages>(INITIAL_CORNER_IMAGES);
-  const [shelfImages, setShelfImages] = useState<ShelfImages>(INITIAL_SHELF_IMAGES);
+  const cornerImages = ref<CornerImages>({ ...INITIAL_CORNER_IMAGES });
+  const shelfImages = ref<ShelfImages>({ ...INITIAL_SHELF_IMAGES });
 
-  useEffect(() => {
+  onMounted(() => {
     Promise.all(
-      (Object.keys(CORNER_IMAGE_PATHS) as CornerImageKey[]).map((key) =>
+      CORNER_IMAGE_KEYS.map((key) =>
         loadImage(CORNER_IMAGE_PATHS[key]).then((image) => ({ key, image }))
       )
     )
@@ -55,12 +63,12 @@ export function useImageAssets() {
           acc[key] = image;
           return acc;
         }, { ...INITIAL_CORNER_IMAGES });
-        setCornerImages(mapped);
+        cornerImages.value = mapped;
       })
       .catch(console.error);
 
     Promise.all(
-      (Object.keys(SHELF_IMAGE_PATHS) as ShelfImageKey[]).map((key) =>
+      SHELF_IMAGE_KEYS.map((key) =>
         loadImage(SHELF_IMAGE_PATHS[key]).then((image) => ({ key, image }))
       )
     )
@@ -69,11 +77,10 @@ export function useImageAssets() {
           acc[key] = image;
           return acc;
         }, { ...INITIAL_SHELF_IMAGES });
-        setShelfImages(mapped);
+        shelfImages.value = mapped;
       })
       .catch(console.error);
-  }, []);
+  });
 
   return { cornerImages, shelfImages };
 }
-

@@ -1,6 +1,10 @@
+// constraints.ts: 기둥/선반 이동 시 적용되는 제약 로직을 정의
 import { Pillar, RoomState, Shelf } from '../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 
+/**
+ * 기둥이 서로 겹치지 않도록 인접 기둥과 방 폭을 기준으로 이동 가능 범위를 제한합니다.
+ */
 export function createPillarPositionValidator(room: RoomState) {
   return (targetPillarId: string, newXMm: number, pillars: Pillar[]) => {
     const normalPillars = pillars
@@ -38,6 +42,9 @@ export function createPillarPositionValidator(room: RoomState) {
   };
 }
 
+/**
+ * 같은 기둥 쌍에 연결된 선반들의 간격 규칙을 만족하도록 세로 위치를 제한합니다.
+ */
 export function createShelfPositionValidator() {
   return (targetShelfId: string, newHeightMm: number, shelves: Shelf[]) => {
     const targetShelf = shelves.find((s) => s.id === targetShelfId);

@@ -1,3 +1,4 @@
+// types.ts: 방/기둥/선반 편집 도메인의 공용 타입과 상수를 정의
 // 방 상태 타입 정의
 export interface RoomState {
   roomWidthMm: number;  // 방 폭 (mm)

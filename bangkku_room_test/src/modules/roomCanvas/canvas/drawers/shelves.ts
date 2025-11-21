@@ -1,3 +1,4 @@
+// shelves.ts: 선반/코너장 이미지를 캔버스에 렌더하고 고스트 상태를 처리
 import { Pillar, ScaleInfo, Shelf } from '../../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';

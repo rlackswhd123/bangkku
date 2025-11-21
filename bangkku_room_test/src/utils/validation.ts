@@ -1,3 +1,4 @@
+// validation.ts: 방 크기 입력을 제약 범위 안으로 검증하는 헬퍼
 import { ROOM_CONSTRAINTS } from '../types';
 
 /**

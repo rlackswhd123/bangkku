@@ -1,3 +1,4 @@
+// spacings.ts: 기둥·선반 사이의 거리(mm)를 표기하는 드로잉 유틸
 import { Pillar, ScaleInfo, Shelf } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';
 

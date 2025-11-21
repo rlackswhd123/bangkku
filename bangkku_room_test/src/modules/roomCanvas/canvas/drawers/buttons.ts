@@ -1,3 +1,4 @@
+// buttons.ts: 캔버스에 기둥/선반 추가 버튼과 위치 계산 로직을 담당
 import { Pillar, ScaleInfo, Shelf } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';
 
