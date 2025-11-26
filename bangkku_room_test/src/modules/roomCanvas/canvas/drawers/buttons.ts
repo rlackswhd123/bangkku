@@ -253,3 +253,83 @@ export function drawSectionDeleteButtons(ctx: CanvasRenderingContext2D, buttons:
   });
 }
 
+export interface ItemAddButtonPosition {
+  x: number;
+  y: number;
+  shelfKey: number;
+  sectionKey: number;
+}
+
+export function calculateItemAddButtonPositions(
+  shelves: Shelf[],
+  sections: Section[],
+  pillars: Pillar[],
+  scaleInfo: ScaleInfo
+): ItemAddButtonPosition[] {
+  const buttons: ItemAddButtonPosition[] = [];
+  const ITEM_ADD_BUTTON_OFFSET_MM = 220; // 선반 위 220mm
+
+  shelves.forEach((shelf) => {
+    if (shelf.sectionKey == null) return;
+
+    const section = sections.find((s) => s.sectionKey === shelf.sectionKey);
+    if (!section) return;
+
+    const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
+    if (!startPillar || !endPillar) return;
+
+    // 섹션의 가운데 x 좌표
+    const centerXMm = (startPillar.x + endPillar.x) / 2;
+    const centerXPx = mmToPxX(centerXMm, scaleInfo);
+
+    // 선반 위 150mm 위치
+    const buttonHeightMm = shelf.y + ITEM_ADD_BUTTON_OFFSET_MM;
+    const centerYPx = mmToPxY(buttonHeightMm, scaleInfo);
+
+    buttons.push({
+      x: centerXPx,
+      y: centerYPx,
+      shelfKey: shelf.shelfKey,
+      sectionKey: shelf.sectionKey,
+    });
+  });
+
+  return buttons;
+}
+
+export function drawItemAddButtons(ctx: CanvasRenderingContext2D, buttons: ItemAddButtonPosition[]) {
+  const buttonWidth = 50;
+  const buttonHeight = 20;
+  const borderRadius = 4;
+
+  buttons.forEach((button) => {
+    const btnX = button.x - buttonWidth / 2;
+    const btnY = button.y - buttonHeight / 2;
+
+    ctx.fillStyle = '#E0E0E0';
+    ctx.beginPath();
+    ctx.moveTo(btnX + borderRadius, btnY);
+    ctx.lineTo(btnX + buttonWidth - borderRadius, btnY);
+    ctx.quadraticCurveTo(btnX + buttonWidth, btnY, btnX + buttonWidth, btnY + borderRadius);
+    ctx.lineTo(btnX + buttonWidth, btnY + buttonHeight - borderRadius);
+    ctx.quadraticCurveTo(btnX + buttonWidth, btnY + buttonHeight, btnX + buttonWidth - borderRadius, btnY + buttonHeight);
+    ctx.lineTo(btnX + borderRadius, btnY + buttonHeight);
+    ctx.quadraticCurveTo(btnX, btnY + buttonHeight, btnX, btnY + buttonHeight - borderRadius);
+    ctx.lineTo(btnX, btnY + borderRadius);
+    ctx.quadraticCurveTo(btnX, btnY, btnX + borderRadius, btnY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#000';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('소품 추가', button.x, button.y);
+  });
+}
+

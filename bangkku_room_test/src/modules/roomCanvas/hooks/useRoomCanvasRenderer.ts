@@ -5,7 +5,7 @@ import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
 import { drawSkeletonRoom } from '../canvas/drawers/skeleton';
-import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions, drawSectionDeleteButtons, calculateSectionDeleteButtonPositions } from '../canvas/drawers/buttons';
+import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions, drawSectionDeleteButtons, calculateSectionDeleteButtonPositions, drawItemAddButtons, calculateItemAddButtonPositions } from '../canvas/drawers/buttons';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
@@ -104,6 +104,12 @@ export function useRoomCanvasRenderer({
       drawSectionDeleteButtons(ctx, sectionDeleteButtons);
     }
 
+    // 소품 추가 버튼 그리기 (각 선반 위에)
+    if (currentShelves.length > 0 && currentSections.length > 0) {
+      const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
+      drawItemAddButtons(ctx, itemAddButtons);
+    }
+
     currentPillars
       .filter((pillar) => (pillar.pillarStyle || 'RS') !== 'DU')
       .forEach((pillar) => {
@@ -114,7 +120,7 @@ export function useRoomCanvasRenderer({
       });
 
     currentShelves.forEach((shelf) => {
-      const isGhost = currentDragState.type === 'shelf' && currentDragState.targetKey === shelf.selfKey;
+      const isGhost = currentDragState.type === 'shelf' && currentDragState.targetKey === shelf.shelfKey;
       if (!isGhost) {
         drawShelf(ctx, shelf, currentPillars, currentSections, currentScaleInfo, shelfImages.value);
       }
@@ -142,7 +148,7 @@ export function useRoomCanvasRenderer({
     }
 
     if (currentDragState.type === 'shelf' && currentDragState.targetKey && currentDragState.originalHeightMm !== undefined) {
-      const ghostShelf = currentShelves.find((s) => s.selfKey === currentDragState.targetKey);
+      const ghostShelf = currentShelves.find((s) => s.shelfKey === currentDragState.targetKey);
       if (ghostShelf) {
         drawGhostShelf(ctx, ghostShelf, currentPillars, currentSections, currentScaleInfo, shelfImages.value);
       }
@@ -254,6 +260,24 @@ export function useCursorUpdater(
       for (const button of shelfButtons) {
         const distanceToShelfButton = Math.sqrt((x - button.x) ** 2 + (y - button.y) ** 2);
         if (distanceToShelfButton <= shelfButtonRadius) {
+          canvas.style.cursor = 'pointer';
+          return;
+        }
+      }
+    }
+
+    // 소품 추가 버튼 커서 업데이트
+    if (currentShelves.length > 0 && currentSections.length > 0) {
+      const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, scaleInfo.value);
+      const buttonWidth = 50;
+      const buttonHeight = 20;
+      for (const button of itemAddButtons) {
+        if (
+          x >= button.x - buttonWidth / 2 &&
+          x <= button.x + buttonWidth / 2 &&
+          y >= button.y - buttonHeight / 2 &&
+          y <= button.y + buttonHeight / 2
+        ) {
           canvas.style.cursor = 'pointer';
           return;
         }

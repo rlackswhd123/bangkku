@@ -13,8 +13,7 @@ export interface RoomFaceState {
   face_y: number;       // 벽면의 높이 (mm)
   face_count: number;   // 면 개수
   pillars: Pillar[];      // 이 면에 배치된 기둥 배열
-  shelves: Shelf[];       // 이 면에 배치된 선반 배열
-  sections: Section[];    // 이 면의 섹션(칸) 배열
+  sections: Section[];    // 이 면의 섹션(칸) 배열 (선반은 sections[].shelves에만 저장)
   hasShelf: boolean;      // 시스템 선반 설치 여부
 }
 
@@ -41,16 +40,16 @@ export function createEmptyFaceState(
     face_y: overrides?.face_y ?? DEFAULT_FACE_METRICS.face_y,
     face_count: overrides?.face_count ?? DEFAULT_FACE_METRICS.face_count,
     pillars: [],
-    shelves: [],
     sections: [],
     hasShelf: false,
   };
 }
 
 /**
- * 면에 시스템 선반이 설치되어 있는지 확인
+ * 면에 시스템 선반이 설치되어 있는지 확인 (섹션 중심 구조)
  */
 export function hasFaceShelf(face: RoomFaceState): boolean {
-  return face.hasShelf || face.pillars.length > 0 || face.shelves.length > 0;
+  const hasShelves = face.sections.some(section => section.shelves.length > 0);
+  return face.hasShelf || face.pillars.length > 0 || hasShelves;
 }
 

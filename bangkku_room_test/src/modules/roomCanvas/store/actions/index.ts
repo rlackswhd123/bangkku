@@ -40,21 +40,27 @@ export function addPillarToActiveFace(pillar: Pillar) {
 }
 
 /**
- * 선반 추가
+ * 선반 추가 (섹션 중심 구조: 사용되지 않음)
+ * 선반은 RoomCanvas.vue에서 직접 섹션에 추가됨
+ * @deprecated 섹션 중심 구조에서는 더 이상 사용되지 않음
  */
 export function addShelfToActiveFace(shelf: Shelf) {
-  const store = useRoomStore();
-  const currentShelves = [...store.activeFaceShelves.value];
-  currentShelves.push(shelf);
-  store.setActiveFaceShelves(currentShelves);
+  console.warn('addShelfToActiveFace는 섹션 중심 구조에서 더 이상 사용되지 않습니다. 섹션에 직접 추가하세요.');
+  // 섹션 중심 구조에서는 이 함수를 사용하지 않음
 }
 
 /**
- * 선반 삭제
+ * 선반 삭제 (섹션 중심 구조: 해당 선반이 속한 섹션에서 제거)
  */
 export function deleteShelfFromActiveFace(shelfKey: number) {
   const store = useRoomStore();
-  const newShelves = store.activeFaceShelves.value.filter((s) => s.selfKey !== shelfKey);
-  store.setActiveFaceShelves(newShelves);
+  const sections = store.activeFaceSections.value;
+  
+  const updatedSections = sections.map(section => ({
+    ...section,
+    shelves: section.shelves.filter(s => s.shelfKey !== shelfKey)
+  }));
+  
+  store.setActiveFaceSections(updatedSections);
 }
 

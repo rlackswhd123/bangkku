@@ -64,9 +64,11 @@ export function useRoomStore() {
   const activeFacePillars = computed(() => activeFace.value.pillars);
 
   /**
-   * 현재 활성 면의 선반 배열
+   * 현재 활성 면의 선반 배열 (섹션 중심 구조: sections에서 모든 선반을 평탄화)
    */
-  const activeFaceShelves = computed(() => activeFace.value.shelves);
+  const activeFaceShelves = computed(() => {
+    return activeFace.value.sections.flatMap(section => section.shelves);
+  });
 
   /**
    * 현재 활성 면의 섹션 배열
@@ -145,7 +147,8 @@ export function useRoomStore() {
     const face = roomState.value.faces[faceId];
     if (face) {
       face.pillars = pillars;
-      face.hasShelf = pillars.length > 0 || face.shelves.length > 0;
+      const hasShelves = face.sections.some(section => section.shelves.length > 0);
+      face.hasShelf = pillars.length > 0 || hasShelves;
     }
   };
 
@@ -156,23 +159,8 @@ export function useRoomStore() {
     setFacePillars(roomState.value.activeFaceId, pillars);
   };
 
-  /**
-   * 특정 면의 선반 배열 설정
-   */
-  const setFaceShelves = (faceId: FaceId, shelves: Shelf[]) => {
-    const face = roomState.value.faces[faceId];
-    if (face) {
-      face.shelves = shelves;
-      face.hasShelf = face.pillars.length > 0 || shelves.length > 0;
-    }
-  };
-
-  /**
-   * 현재 활성 면의 선반 배열 설정
-   */
-  const setActiveFaceShelves = (shelves: Shelf[]) => {
-    setFaceShelves(roomState.value.activeFaceId, shelves);
-  };
+  // 섹션 중심 구조: setFaceShelves와 setActiveFaceShelves는 더 이상 필요 없음
+  // 선반은 sections[].shelves에만 저장되며, activeFaceShelves는 computed로 자동 계산됨
 
   /**
    * 특정 면의 섹션 배열 설정
@@ -217,9 +205,7 @@ export function useRoomStore() {
     // 삭제할 섹션의 너비 계산 (이만큼 오른쪽 기둥들을 왼쪽으로 이동)
     const sectionWidth = endPillar.x - startPillar.x;
 
-    // 섹션 내 모든 선반 삭제
-    const shelvesToRemove = sectionToRemove.shelves.map((s) => s.selfKey);
-    face.shelves = face.shelves.filter((s) => !shelvesToRemove.includes(s.selfKey));
+    // 섹션 중심 구조: 섹션 삭제 시 선반은 자동으로 함께 삭제됨 (별도 처리 불필요)
 
     // 섹션들을 기둥 위치 기준으로 정렬 (startPillar의 x 기준)
     const sortedSections = [...face.sections]
@@ -312,14 +298,13 @@ export function useRoomStore() {
   };
 
   /**
-   * 특정 면의 모든 가구(기둥/선반/섹션) 초기화
+   * 특정 면의 모든 가구(기둥/선반/섹션) 초기화 (섹션 중심 구조)
    */
   const clearFaceFurniture = (faceId: FaceId) => {
     const face = roomState.value.faces[faceId];
     if (face) {
       face.pillars = [];
-      face.shelves = [];
-      face.sections = [];
+      face.sections = []; // 섹션 삭제 시 선반도 자동으로 삭제됨
       face.hasShelf = false;
     }
   };
@@ -404,8 +389,6 @@ export function useRoomStore() {
     updateActiveFaceMetrics,
     setFacePillars,
     setActiveFacePillars,
-    setFaceShelves,
-    setActiveFaceShelves,
     setActiveFaceSections,
     addSection,
     removeSection,

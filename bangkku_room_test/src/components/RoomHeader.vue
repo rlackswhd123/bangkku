@@ -35,8 +35,26 @@
       </div>
     </div>
 
-    <!-- 우측: 설정 버튼 -->
+    <!-- 우측: 저장/불러오기/설정 버튼 -->
     <div :style="rightSectionStyle">
+      <!-- 저장 버튼 -->
+      <button
+        @click="handleSaveClick"
+        :style="saveButtonStyle"
+        @mouseenter="handleButtonHover"
+        @mouseleave="handleButtonLeave"
+      >
+        저장
+      </button>
+      <!-- 불러오기 버튼 -->
+      <button
+        @click="handleLoadClick"
+        :style="loadButtonStyle"
+        @mouseenter="handleButtonHover"
+        @mouseleave="handleButtonLeave"
+      >
+        불러오기
+      </button>
       <!-- 설정 버튼 -->
       <button
         @click="handleSettingsClick"
@@ -59,6 +77,8 @@ import { FaceId } from '../modules/roomCanvas/models/roomShape';
 const emit = defineEmits<{
   shapeChange: [];
   settings: [];
+  save: [];
+  load: [];
 }>();
 
 const store = useRoomStore();
@@ -93,6 +113,14 @@ const handleSettingsClick = () => {
   emit('settings');
 };
 
+const handleSaveClick = () => {
+  emit('save');
+};
+
+const handleLoadClick = () => {
+  emit('load');
+};
+
 // 탭 스타일 계산
 const getTabStyle = (faceId: FaceId) => ({
   ...tabBaseStyle,
@@ -119,12 +147,20 @@ const handleTabLeave = (faceId: FaceId, e: MouseEvent) => {
 
 const handleButtonHover = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLButtonElement;
+  // 원래 색상을 data 속성에 저장
+  if (!target.dataset.originalColor) {
+    target.dataset.originalColor = target.style.backgroundColor || getComputedStyle(target).backgroundColor;
+  }
   target.style.backgroundColor = '#0056b3';
 };
 
 const handleButtonLeave = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLButtonElement;
-  target.style.backgroundColor = '#007AFF';
+  // 저장된 원래 색상으로 복원
+  const originalColor = target.dataset.originalColor;
+  if (originalColor) {
+    target.style.backgroundColor = originalColor;
+  }
 };
 
 // 스타일 정의
@@ -213,6 +249,30 @@ const shapeButtonStyle = {
   fontWeight: '600',
   color: '#fff',
   backgroundColor: '#007AFF',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+};
+
+const saveButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '13px',
+  fontWeight: '600',
+  color: '#fff',
+  backgroundColor: '#4CAF50',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+};
+
+const loadButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '13px',
+  fontWeight: '600',
+  color: '#fff',
+  backgroundColor: '#FF9800',
   border: 'none',
   borderRadius: '6px',
   cursor: 'pointer',

@@ -1,6 +1,7 @@
 // roomState.ts: 전체 방 상태 타입 및 직렬화 로직
 import { RoomShape, FaceId, getActiveFaces } from './roomShape';
 import { RoomFaceState, createEmptyFaceState } from './roomFace';
+import { Shelf, Section } from '../../../types';
 
 /**
  * 전체 방 상태
@@ -63,10 +64,55 @@ export function reinitializeFacesForShape(
 }
 
 /**
+ * 선반을 y 좌표 기준 오름차순 정렬 (위에서 아래로)
+ */
+function sortShelvesByY(shelves: Shelf[]): Shelf[] {
+  return [...shelves].sort((a, b) => a.y - b.y);
+}
+
+/**
+ * 섹션 내 선반들을 y 좌표 기준으로 정렬
+ */
+function sortSectionsShelves(sections: Section[]): Section[] {
+  return sections.map(section => ({
+    ...section,
+    shelves: sortShelvesByY(section.shelves),
+  }));
+}
+
+/**
+ * 면 상태의 선반들을 정렬 (섹션 중심 구조: sections[].shelves만 정렬)
+ */
+function sortFaceShelves(face: RoomFaceState): RoomFaceState {
+  return {
+    ...face,
+    sections: sortSectionsShelves(face.sections),
+  };
+}
+
+/**
+ * 방 상태의 모든 면의 선반들을 정렬
+ */
+function sortAllShelves(state: MultiRoomState): MultiRoomState {
+  return {
+    ...state,
+    faces: {
+      1: sortFaceShelves(state.faces[1]),
+      2: sortFaceShelves(state.faces[2]),
+      3: sortFaceShelves(state.faces[3]),
+      4: sortFaceShelves(state.faces[4]),
+    },
+  };
+}
+
+/**
  * 방 상태 직렬화 (저장용)
+ * 저장 전에 선반들을 y 좌표 기준으로 정렬합니다.
  */
 export function serializeRoomState(state: MultiRoomState): string {
-  return JSON.stringify(state, null, 2);
+  // 저장 직전에 선반 정렬
+  const sortedState = sortAllShelves(state);
+  return JSON.stringify(sortedState, null, 2);
 }
 
 /**
@@ -106,7 +152,7 @@ export function migrateFromLegacyState(
 ): MultiRoomState {
   const state = createInitialRoomState('내 방', 'ㅁ');
   
-  // 레거시 데이터를 1번 면에 배치
+  // 레거시 데이터를 1번 면에 배치 (섹션 중심 구조: shelves 필드 제거)
   state.faces[1] = {
     faceKey: 1,
     space_x: 0,
@@ -115,8 +161,7 @@ export function migrateFromLegacyState(
     face_y: legacyRoom.roomHeightMm ?? 3400,
     face_count: 1,
     pillars: legacyPillars || [],
-    shelves: legacyShelves || [],
-    sections: [],
+    sections: [], // 레거시 선반은 섹션이 없으므로 빈 배열 (필요시 섹션으로 마이그레이션 가능)
     hasShelf: (legacyPillars?.length ?? 0) > 0 || (legacyShelves?.length ?? 0) > 0,
   };
 
@@ -142,10 +187,9 @@ function migrateFace(face: RoomFaceState | undefined, faceKey: FaceId): RoomFace
     face_x: width,
     face_y: height,
     face_count: 1,
-    pillars: face.pillars ?? [],
-    shelves: face.shelves ?? [],
-    sections: face.sections ?? [],
-    hasShelf: face.hasShelf ?? false,
+    pillars: (face as any).pillars ?? [],
+    sections: (face as any).sections ?? [],
+    hasShelf: (face as any).hasShelf ?? false,
   };
 }
 

@@ -32,7 +32,7 @@ export interface Pillar {
 
 // 선반 타입 (PRD 기준)
 export interface Shelf {
-  selfKey: number;
+  shelfKey: number;
   prodKey: number;
   sectionKey?: number;     // 섹션 참조 ID (선택)
   type: 'normal' | 'hanger' | 'drawer';  // 선반 종류: 일반, 옷걸이, 서랍

@@ -5,6 +5,8 @@
     <RoomHeader
       @shape-change="isShapeSelectorOpen = true"
       @settings="isGlobalSettingsModalOpen = true"
+      @save="handleSave"
+      @load="handleLoad"
     />
 
     <!-- 메인 콘텐츠 -->
@@ -147,6 +149,9 @@ import { ScaleInfo } from './types';
 import { useRoomStore } from './modules/roomCanvas/store';
 import { RoomShape } from './modules/roomCanvas/models/roomShape';
 import { deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
+import { serializeRoomState, deserializeRoomState } from './modules/roomCanvas/models/roomState';
+import { downloadRoomStateFile } from './utils/export';
+import { importJsonFile } from './utils/import';
 
 const store = useRoomStore();
 
@@ -179,7 +184,7 @@ const selectedPillar = computed(() => {
 
 const selectedShelf = computed(() => {
   return selectedType.value === 'shelf' && selectedKey.value != null
-    ? store.activeFaceShelves.value.find((s) => s.selfKey === selectedKey.value) || null
+    ? store.activeFaceShelves.value.find((s) => s.shelfKey === selectedKey.value) || null
     : null;
 });
 
@@ -251,6 +256,46 @@ const handleShapeSelect = (shape: RoomShape) => {
 /** 글로벌 설정 확인 핸들러 */
 const handleGlobalSettingsConfirm = () => {
   showToast('설정이 저장되었습니다');
+};
+
+/** 방 상태를 JSON 파일로 저장합니다. */
+const handleSave = () => {
+  try {
+    const currentState = store.state.value;
+    const jsonString = serializeRoomState(currentState);
+    const roomName = currentState.roomName || '내 방';
+    
+    downloadRoomStateFile(jsonString, roomName);
+    showToast('파일이 저장되었습니다.');
+  } catch (error) {
+    console.error('저장 오류:', error);
+    showToast('파일 저장에 실패했습니다.');
+  }
+};
+
+/** JSON 파일에서 방 상태를 불러옵니다. */
+const handleLoad = async () => {
+  try {
+    const jsonString = await importJsonFile();
+    const loadedState = deserializeRoomState(jsonString);
+    
+    // 스토어에 불러온 상태 적용
+    store.loadRoomState(loadedState);
+    
+    showToast('파일을 불러왔습니다.');
+  } catch (error) {
+    console.error('불러오기 오류:', error);
+    
+    if (error instanceof Error) {
+      // 사용자가 파일 선택을 취소한 경우는 메시지를 표시하지 않음
+      if (error.message.includes('취소') || error.message.includes('선택되지 않았습니다')) {
+        return;
+      }
+      showToast(error.message || '파일 불러오기에 실패했습니다.');
+    } else {
+      showToast('파일 불러오기에 실패했습니다.');
+    }
+  }
 };
 
 /** 사용자에게 알림을 표시합니다. */

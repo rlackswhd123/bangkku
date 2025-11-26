@@ -47,7 +47,7 @@ export function createPillarPositionValidator(room: RoomState) {
  */
 export function createShelfPositionValidator(_pillars: Pillar[]) {
   return (targetShelfKey: number, newHeightMm: number, shelves: Shelf[], originalHeightMm?: number, maxHeightMm?: number) => {
-    const targetShelf = shelves.find((s) => s.selfKey === targetShelfKey);
+    const targetShelf = shelves.find((s) => s.shelfKey === targetShelfKey);
     if (!targetShelf) return newHeightMm;
 
     // 스토어에서 글로벌 설정 가져오기
@@ -70,7 +70,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
     // 같은 기둥 쌍의 선반들만 체크 (X축 범위가 겹치는 선반들)
     const samePairShelves = shelves.filter(
       (s) =>
-        s.selfKey !== targetShelfKey &&
+        s.shelfKey !== targetShelfKey &&
         s.sectionKey === targetShelf.sectionKey
     );
     

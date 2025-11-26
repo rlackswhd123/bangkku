@@ -4,13 +4,14 @@ import { FaceId } from '../../models/roomShape';
 import { useRoomStore } from '../index';
 
 /**
- * 특정 면의 가구 설치 여부를 반환하는 selector
+ * 특정 면의 가구 설치 여부를 반환하는 selector (섹션 중심 구조)
  */
 export function useFaceHasShelf(faceId: FaceId): ComputedRef<boolean> {
   const store = useRoomStore();
   return computed(() => {
     const face = store.getFaceState(faceId);
-    return face.hasShelf || face.pillars.length > 0 || face.shelves.length > 0;
+    const hasShelves = face.sections.some(section => section.shelves.length > 0);
+    return face.hasShelf || face.pillars.length > 0 || hasShelves;
   });
 }
 
@@ -26,7 +27,7 @@ export function useActiveFaceFurnitureCount(): ComputedRef<{ pillars: number; sh
 }
 
 /**
- * 모든 면의 상태 요약 정보를 반환
+ * 모든 면의 상태 요약 정보를 반환 (섹션 중심 구조)
  */
 export function useAllFacesSummary(): ComputedRef<
   Array<{
@@ -38,12 +39,16 @@ export function useAllFacesSummary(): ComputedRef<
 > {
   const store = useRoomStore();
   return computed(() =>
-    store.allFaces.value.map((face) => ({
-      faceKey: face.faceKey,
-      hasShelf: face.hasShelf || face.pillars.length > 0 || face.shelves.length > 0,
-      pillarCount: face.pillars.length,
-      shelfCount: face.shelves.length,
-    }))
+    store.allFaces.value.map((face) => {
+      const shelfCount = face.sections.reduce((sum, section) => sum + section.shelves.length, 0);
+      const hasShelves = face.sections.some(section => section.shelves.length > 0);
+      return {
+        faceKey: face.faceKey,
+        hasShelf: face.hasShelf || face.pillars.length > 0 || hasShelves,
+        pillarCount: face.pillars.length,
+        shelfCount,
+      };
+    })
   );
 }
 
