@@ -1,7 +1,6 @@
 // store/selectors/index.ts: 유용한 selector 함수들
 import { computed, ComputedRef } from 'vue';
 import { FaceId } from '../../models/roomShape';
-import { RoomFaceState } from '../../models/roomFace';
 import { useRoomStore } from '../index';
 
 /**
@@ -31,7 +30,7 @@ export function useActiveFaceFurnitureCount(): ComputedRef<{ pillars: number; sh
  */
 export function useAllFacesSummary(): ComputedRef<
   Array<{
-    faceId: FaceId;
+    faceKey: FaceId;
     hasShelf: boolean;
     pillarCount: number;
     shelfCount: number;
@@ -40,7 +39,7 @@ export function useAllFacesSummary(): ComputedRef<
   const store = useRoomStore();
   return computed(() =>
     store.allFaces.value.map((face) => ({
-      faceId: face.faceId,
+      faceKey: face.faceKey,
       hasShelf: face.hasShelf || face.pillars.length > 0 || face.shelves.length > 0,
       pillarCount: face.pillars.length,
       shelfCount: face.shelves.length,

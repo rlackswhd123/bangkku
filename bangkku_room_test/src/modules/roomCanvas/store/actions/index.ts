@@ -1,6 +1,7 @@
 // store/actions/index.ts: 복잡한 비즈니스 로직을 담은 액션 함수들
 import { useRoomStore } from '../index';
 import { FaceId } from '../../models/roomShape';
+import { RoomFaceState } from '../../models/roomFace';
 import { Pillar, Shelf } from '../../../../types';
 
 /**
@@ -16,7 +17,7 @@ export function switchToFace(faceId: FaceId) {
  */
 export function updateRoomDimensionsWithConfirmation(
   faceId: FaceId,
-  newDimensions: { widthMm?: number; heightMm?: number; depthMm?: number },
+  newMetrics: Partial<Pick<RoomFaceState, 'space_x' | 'space_y' | 'face_x' | 'face_y' | 'face_count'>>,
   clearFurniture: boolean = false
 ) {
   const store = useRoomStore();
@@ -25,7 +26,7 @@ export function updateRoomDimensionsWithConfirmation(
     store.clearFaceFurniture(faceId);
   }
   
-  store.updateFaceDimensions(faceId, newDimensions);
+  store.updateFaceMetrics(faceId, newMetrics);
 }
 
 /**
@@ -49,29 +50,11 @@ export function addShelfToActiveFace(shelf: Shelf) {
 }
 
 /**
- * 기둥 삭제 (연결된 선반도 함께)
- */
-export function deletePillarFromActiveFace(pillarId: string) {
-  const store = useRoomStore();
-  
-  // 기둥 제거
-  const newPillars = store.activeFacePillars.value.filter((p) => p.id !== pillarId);
-  
-  // 연결된 선반 제거
-  const newShelves = store.activeFaceShelves.value.filter(
-    (s) => s.startPillarId !== pillarId && s.endPillarId !== pillarId
-  );
-  
-  store.setActiveFacePillars(newPillars);
-  store.setActiveFaceShelves(newShelves);
-}
-
-/**
  * 선반 삭제
  */
-export function deleteShelfFromActiveFace(shelfId: string) {
+export function deleteShelfFromActiveFace(shelfKey: number) {
   const store = useRoomStore();
-  const newShelves = store.activeFaceShelves.value.filter((s) => s.id !== shelfId);
+  const newShelves = store.activeFaceShelves.value.filter((s) => s.selfKey !== shelfKey);
   store.setActiveFaceShelves(newShelves);
 }
 

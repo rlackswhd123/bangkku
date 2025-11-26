@@ -49,14 +49,14 @@
     <!-- ID -->
     <div v-if="hasSelection" :style="styles.idSection">
       <label :style="styles.idLabel">ID</label>
-      <div :style="styles.idValue">{{ selectedId }}</div>
+      <div :style="styles.idValue">{{ selectedKey }}</div>
     </div>
 
     <!-- 추가 정보 -->
     <div v-if="isPillar && pillar" :style="styles.infoSection">
       <div :style="styles.infoItem">
         <span :style="styles.infoLabel">위치:</span>
-        <span :style="styles.infoValue">{{ Math.round(pillar.xMm) }}mm</span>
+        <span :style="styles.infoValue">{{ Math.round(pillar.x) }}mm</span>
       </div>
     </div>
 
@@ -95,10 +95,11 @@ import { Pillar, Shelf } from '../types';
 
 interface Props {
   selectedType: 'pillar' | 'shelf' | null;
-  selectedId: string | null;
+  selectedKey: number | null;
   pillar: Pillar | null;
   shelf: Shelf | null;
-  pillars: Pillar[];
+  pillars: readonly Pillar[];
+  sections?: ReadonlyArray<{ sectionKey: number; startPillarKey: number; endPillarKey: number } & { shelves: Shelf[] }>;
 }
 
 const props = defineProps<Props>();
@@ -147,7 +148,7 @@ onMounted(() => {
 const isPillar = computed(() => props.selectedType === 'pillar' && props.pillar);
 const isShelf = computed(() => props.selectedType === 'shelf' && props.shelf);
 const hasSelection = computed(
-  () => !!props.selectedType && !!props.selectedId && (!!isPillar.value || !!isShelf.value)
+  () => !!props.selectedType && props.selectedKey != null && (!!isPillar.value || !!isShelf.value)
 );
 
 const shelfImage = computed(() => {
@@ -159,15 +160,23 @@ const shelfImage = computed(() => {
 // 선반 정보 계산
 const shelfInfo = computed(() => {
   if (!isShelf.value || !props.shelf) return null;
-  const startPillar = props.pillars.find((p) => p.id === props.shelf!.startPillarId);
-  const endPillar = props.pillars.find((p) => p.id === props.shelf!.endPillarId);
-  if (startPillar && endPillar) {
-    const lengthMm = Math.round(endPillar.xMm - startPillar.xMm);
+  if (props.shelf.sectionKey == null || !props.sections) {
     return {
-      lengthMm,
-      heightMm: Math.round(props.shelf.heightMm),
+      lengthMm: Math.round(props.shelf.x ?? 0),
+      heightMm: Math.round(props.shelf.y),
     };
   }
+  const section = props.sections.find((s) => s.sectionKey === props.shelf!.sectionKey);
+  if (!section) return null;
+  const startPillar = props.pillars.find((p) => p.pillarKey === section.startPillarKey);
+  const endPillar = props.pillars.find((p) => p.pillarKey === section.endPillarKey);
+  if (!startPillar || !endPillar) return null;
+
+  const lengthMm = Math.round(endPillar.x - startPillar.x);
+  return {
+    lengthMm,
+    heightMm: Math.round(props.shelf.y),
+  };
   return null;
 });
 

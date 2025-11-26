@@ -1,6 +1,6 @@
 // roomState.ts: 전체 방 상태 타입 및 직렬화 로직
 import { RoomShape, FaceId, getActiveFaces } from './roomShape';
-import { RoomFaceState, createEmptyFaceState, DEFAULT_FACE_DIMENSIONS } from './roomFace';
+import { RoomFaceState, createEmptyFaceState } from './roomFace';
 
 /**
  * 전체 방 상태
@@ -75,17 +75,18 @@ export function serializeRoomState(state: MultiRoomState): string {
 export function deserializeRoomState(json: string): MultiRoomState {
   const parsed = JSON.parse(json);
   
-  // 기본값 병합 (하위 호환성 유지)
+  const faces: Record<FaceId, RoomFaceState> = {
+    1: migrateFace(parsed.faces?.[1], 1),
+    2: migrateFace(parsed.faces?.[2], 2),
+    3: migrateFace(parsed.faces?.[3], 3),
+    4: migrateFace(parsed.faces?.[4], 4),
+  };
+
   return {
     roomName: parsed.roomName || '내 방',
     roomShape: parsed.roomShape || 'ㅁ',
     activeFaceId: parsed.activeFaceId || 1,
-    faces: parsed.faces || {
-      1: createEmptyFaceState(1),
-      2: createEmptyFaceState(2),
-      3: createEmptyFaceState(3),
-      4: createEmptyFaceState(4),
-    },
+    faces,
   };
 }
 
@@ -107,17 +108,44 @@ export function migrateFromLegacyState(
   
   // 레거시 데이터를 1번 면에 배치
   state.faces[1] = {
-    faceId: 1,
-    dimensions: {
-      widthMm: legacyRoom.roomWidthMm || DEFAULT_FACE_DIMENSIONS.widthMm,
-      heightMm: legacyRoom.roomHeightMm || DEFAULT_FACE_DIMENSIONS.heightMm,
-      depthMm: legacyRoom.roomDepthMm || DEFAULT_FACE_DIMENSIONS.depthMm,
-    },
+    faceKey: 1,
+    space_x: 0,
+    space_y: 0,
+    face_x: legacyRoom.roomWidthMm ?? 5000,
+    face_y: legacyRoom.roomHeightMm ?? 3400,
+    face_count: 1,
     pillars: legacyPillars || [],
     shelves: legacyShelves || [],
-    hasShelf: legacyPillars.length > 0 || legacyShelves.length > 0,
+    sections: [],
+    hasShelf: (legacyPillars?.length ?? 0) > 0 || (legacyShelves?.length ?? 0) > 0,
   };
 
   return state;
+}
+
+function migrateFace(face: RoomFaceState | undefined, faceKey: FaceId): RoomFaceState {
+  if (!face) {
+    return createEmptyFaceState(faceKey);
+  }
+
+  if ('faceKey' in face) {
+    return face;
+  }
+
+  const width = (face as any).dimensions?.widthMm ?? 5000;
+  const height = (face as any).dimensions?.heightMm ?? 3400;
+
+  return {
+    faceKey,
+    space_x: 0,
+    space_y: 0,
+    face_x: width,
+    face_y: height,
+    face_count: 1,
+    pillars: face.pillars ?? [],
+    shelves: face.shelves ?? [],
+    sections: face.sections ?? [],
+    hasShelf: face.hasShelf ?? false,
+  };
 }
 

@@ -30,13 +30,13 @@ export const ROOM_SHAPE_CONFIGS: Record<RoomShape, RoomShapeConfig> = {
   },
   'ㄴ': {
     shape: 'ㄴ',
-    activeFaces: [1, 2, 3],
-    description: 'ㄴ자 형태 방 (3개 면)',
+    activeFaces: [1, 4],
+    description: 'ㄴ자 형태 방 (2개 면)',
   },
   'ㄷ': {
     shape: 'ㄷ',
-    activeFaces: [1, 2, 3, 4],
-    description: 'ㄷ자 형태 방 (4개 면)',
+    activeFaces: [1, 2, 3],
+    description: 'ㄷ자 형태 방 (3개 면)',
   },
   'ㅁ': {
     shape: 'ㅁ',

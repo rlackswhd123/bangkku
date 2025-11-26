@@ -1,5 +1,5 @@
 // shelves.ts: 선반/코너장 이미지를 캔버스에 렌더하고 고스트 상태를 처리
-import { Pillar, ScaleInfo, Shelf } from '../../../../types';
+import { Pillar, ScaleInfo, Section, Shelf } from '../../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';
 import { CornerImages, ShelfImages } from '../../hooks/useImageAssets';
@@ -8,16 +8,24 @@ export function drawShelf(
   ctx: CanvasRenderingContext2D,
   shelf: Shelf,
   pillars: Pillar[],
+  sections: Section[],
   scaleInfo: ScaleInfo,
   shelfImages: ShelfImages
 ) {
-  const startPillar = pillars.find((p) => p.id === shelf.startPillarId);
-  const endPillar = pillars.find((p) => p.id === shelf.endPillarId);
-  if (!startPillar || !endPillar) return;
+  const section = shelf.sectionKey != null ? sections.find((s) => s.sectionKey === shelf.sectionKey) : null;
+  if (!section) return;
 
-  const startX = mmToPxX(startPillar.xMm, scaleInfo);
-  const endX = mmToPxX(endPillar.xMm, scaleInfo);
-  const shelfY = mmToPxY(shelf.heightMm, scaleInfo);
+  const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
+  const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
+  if (!startPillar) return;
+
+  const startXMm = startPillar.x;
+  const fallbackEndXMm = startXMm + (section.x ?? shelf.x ?? 0);
+  const endXMm = endPillar ? endPillar.x : fallbackEndXMm;
+
+  const startX = mmToPxX(startXMm, scaleInfo);
+  const endX = mmToPxX(endXMm, scaleInfo);
+  const shelfY = mmToPxY(shelf.y, scaleInfo);
   const shelfWidth = endX - startX;
 
   const shelfType = shelf.type || 'normal';
@@ -97,12 +105,13 @@ export function drawGhostShelf(
   ctx: CanvasRenderingContext2D,
   shelf: Shelf,
   pillars: Pillar[],
+  sections: Section[],
   scaleInfo: ScaleInfo,
   shelfImages: ShelfImages
 ) {
   ctx.save();
   ctx.globalAlpha = 0.5;
-  drawShelf(ctx, shelf, pillars, scaleInfo, shelfImages);
+  drawShelf(ctx, shelf, pillars, sections, scaleInfo, shelfImages);
   ctx.restore();
 }
 
@@ -114,14 +123,14 @@ export function drawCornerShelfImages(
   cornerImages: CornerImages
 ) {
   const { redRect } = scaleInfo;
-  const cornerPillars = pillars.filter((p) => p.cornerPillar && p.type !== 'wall');
+  const cornerPillars = pillars.filter((p) => p.cornerYn);
 
   for (const cornerPillar of cornerPillars) {
-    const isLeft = cornerPillar.xMm < roomWidthMm / 2;
-    const startPillarX = mmToPxX(cornerPillar.xMm, scaleInfo);
+    const isLeft = cornerPillar.x < roomWidthMm / 2;
+    const startPillarX = mmToPxX(cornerPillar.x, scaleInfo);
 
-    const sortedPillars = pillars.filter((p) => p.type !== 'wall').sort((a, b) => a.xMm - b.xMm);
-    const pillarIndex = sortedPillars.findIndex((p) => p.id === cornerPillar.id);
+    const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
+    const pillarIndex = sortedPillars.findIndex((p) => p.pillarKey === cornerPillar.pillarKey);
     let pairPillar: Pillar | null = null;
 
     if (pillarIndex > 0) {
@@ -132,7 +141,7 @@ export function drawCornerShelfImages(
 
     if (!pairPillar) continue;
 
-    const endPillarX = mmToPxX(pairPillar.xMm, scaleInfo);
+    const endPillarX = mmToPxX(pairPillar.x, scaleInfo);
     const shelfStartX = Math.min(startPillarX, endPillarX);
     const shelfEndX = Math.max(startPillarX, endPillarX);
     const shelfWidth = shelfEndX - shelfStartX;

@@ -4,7 +4,7 @@
     <!-- 상단 헤더: 새로운 RoomHeader 컴포넌트 -->
     <RoomHeader
       @shape-change="isShapeSelectorOpen = true"
-      @edit="handleEdit"
+      @settings="isGlobalSettingsModalOpen = true"
     />
 
     <!-- 메인 콘텐츠 -->
@@ -15,16 +15,18 @@
           @scale-change="setScaleInfo"
           @object-select="handleObjectSelect"
           @show-toast="showToast"
+          @section-delete-request="handleSectionDeleteRequest"
         />
       </div>
 
       <!-- 오브젝트 정보 패널 -->
       <ObjectInfoPanel
         :selected-type="selectedType"
-        :selected-id="selectedId"
+        :selected-key="selectedKey"
         :pillar="selectedPillar"
         :shelf="selectedShelf"
         :pillars="store.activeFacePillars.value"
+        :sections="store.activeFaceSections.value"
         @close="handleClose"
         @delete="handleDelete"
       />
@@ -37,6 +39,13 @@
       @select="handleShapeSelect"
     />
 
+    <!-- 글로벌 설정 모달 -->
+    <GlobalSettingsModal
+      :is-open="isGlobalSettingsModalOpen"
+      @close="isGlobalSettingsModalOpen = false"
+      @confirm="handleGlobalSettingsConfirm"
+    />
+
     <!-- 토스트 메시지 -->
     <Toast
       :message="toastMessage"
@@ -44,28 +53,28 @@
       @close="hideToast"
     />
 
-    <!-- 기둥 삭제 확인 모달 -->
+    <!-- 섹션 삭제 확인 모달 -->
     <Teleport to="body">
-      <div v-if="pillarDeleteModal && pillarDeleteModal.show">
+      <div v-if="sectionDeleteModal && sectionDeleteModal.show">
         <!-- 모달 외부 배경 -->
         <div
           :style="modalOverlayStyle"
-          @click="handlePillarDeleteConfirm(false)"
+          @click="handleSectionDeleteConfirm(false)"
         />
         <!-- 모달 컨텍스트 -->
         <div
           :style="modalStyle"
           @click.stop
         >
-          <div :style="modalTitleStyle">기둥 삭제 확인</div>
+          <div :style="modalTitleStyle">섹션 삭제 확인</div>
           <div :style="modalTextStyle">
-            이 기둥과 연결된 선반 {{ pillarDeleteModal.connectedShelvesCount }}개가 함께 삭제됩니다.
+            이 섹션에 포함된 선반 {{ sectionDeleteModal.shelvesCount }}개가 함께 삭제됩니다.
             <br />
             정말 삭제하시겠습니까?
           </div>
           <div :style="modalButtonGroupStyle">
             <button
-              @click="handlePillarDeleteConfirm(false)"
+              @click="handleSectionDeleteConfirm(false)"
               :style="modalCancelButtonStyle"
               @mouseenter="handleModalButtonHover"
               @mouseleave="handleModalButtonLeave"
@@ -73,7 +82,46 @@
               취소
             </button>
             <button
-              @click="handlePillarDeleteConfirm(true)"
+              @click="handleSectionDeleteConfirm(true)"
+              :style="modalConfirmButtonStyle"
+              @mouseenter="handleModalConfirmButtonHover"
+              @mouseleave="handleModalConfirmButtonLeave"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 선반 삭제 확인 모달 -->
+    <Teleport to="body">
+      <div v-if="shelfDeleteModal && shelfDeleteModal.show">
+        <!-- 모달 외부 배경 -->
+        <div
+          :style="modalOverlayStyle"
+          @click="handleShelfDeleteConfirm(false)"
+        />
+        <!-- 모달 컨텍스트 -->
+        <div
+          :style="modalStyle"
+          @click.stop
+        >
+          <div :style="modalTitleStyle">선반 삭제 확인</div>
+          <div :style="modalTextStyle">
+            이 선반을 삭제하시겠습니까?
+          </div>
+          <div :style="modalButtonGroupStyle">
+            <button
+              @click="handleShelfDeleteConfirm(false)"
+              :style="modalCancelButtonStyle"
+              @mouseenter="handleModalButtonHover"
+              @mouseleave="handleModalButtonLeave"
+            >
+              취소
+            </button>
+            <button
+              @click="handleShelfDeleteConfirm(true)"
               :style="modalConfirmButtonStyle"
               @mouseenter="handleModalConfirmButtonHover"
               @mouseleave="handleModalConfirmButtonLeave"
@@ -92,39 +140,46 @@ import { ref, computed } from 'vue';
 import RoomCanvas from './components/RoomCanvas.vue';
 import RoomHeader from './components/RoomHeader.vue';
 import ShapeSelector from './components/ShapeSelector.vue';
+import GlobalSettingsModal from './components/GlobalSettingsModal.vue';
 import ObjectInfoPanel from './components/ObjectInfoPanel.vue';
 import Toast from './components/Toast.vue';
-import { Pillar, Shelf, ScaleInfo } from './types';
+import { ScaleInfo } from './types';
 import { useRoomStore } from './modules/roomCanvas/store';
 import { RoomShape } from './modules/roomCanvas/models/roomShape';
-import { deletePillarFromActiveFace, deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
+import { deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
 
 const store = useRoomStore();
 
 const scaleInfo = ref<ScaleInfo | null>(null);
 const isShapeSelectorOpen = ref(false);
+const isGlobalSettingsModalOpen = ref(false);
 
 const selectedType = ref<'pillar' | 'shelf' | null>(null);
-const selectedId = ref<string | null>(null);
+const selectedKey = ref<number | null>(null);
 
 const toastMessage = ref<string>('');
 const isToastVisible = ref(false);
 
-const pillarDeleteModal = ref<{
+const sectionDeleteModal = ref<{
   show: boolean;
-  pillarId: string;
-  connectedShelvesCount: number;
+  sectionKey: number;
+  shelvesCount: number;
+} | null>(null);
+
+const shelfDeleteModal = ref<{
+  show: boolean;
+  shelfKey: number;
 } | null>(null);
 
 const selectedPillar = computed(() => {
-  return selectedType.value === 'pillar' && selectedId.value
-    ? store.activeFacePillars.value.find((p) => p.id === selectedId.value) || null
+  return selectedType.value === 'pillar' && selectedKey.value != null
+    ? store.activeFacePillars.value.find((p) => p.pillarKey === selectedKey.value) || null
     : null;
 });
 
 const selectedShelf = computed(() => {
-  return selectedType.value === 'shelf' && selectedId.value
-    ? store.activeFaceShelves.value.find((s) => s.id === selectedId.value) || null
+  return selectedType.value === 'shelf' && selectedKey.value != null
+    ? store.activeFaceShelves.value.find((s) => s.selfKey === selectedKey.value) || null
     : null;
 });
 
@@ -134,53 +189,57 @@ const setScaleInfo = (info: ScaleInfo) => {
 };
 
 /** 캔버스에서 전달된 선택 대상을 패널과 모달이 참조할 수 있게 저장합니다. */
-const handleObjectSelect = (type: 'pillar' | 'shelf' | null, id: string | null) => {
+const handleObjectSelect = (type: 'pillar' | 'shelf' | null, key: number | null) => {
   selectedType.value = type;
-  selectedId.value = id;
+  selectedKey.value = key;
 };
 
 const handleClose = () => {
   selectedType.value = null;
-  selectedId.value = null;
+  selectedKey.value = null;
 };
 
-/** 선택된 기둥/선반을 제거하고 필요 시 연관 선반 삭제 모달을 띄웁니다. */
+/** 선택된 선반을 제거합니다. */
 const handleDelete = () => {
-  if (selectedType.value === 'pillar' && selectedId.value) {
-    const connectedShelves = store.activeFaceShelves.value.filter(
-      (s) => s.startPillarId === selectedId.value || s.endPillarId === selectedId.value
-    );
-
-    if (connectedShelves.length > 0) {
-      pillarDeleteModal.value = {
-        show: true,
-        pillarId: selectedId.value,
-        connectedShelvesCount: connectedShelves.length,
-      };
-      return;
-    }
-
-    deletePillarFromActiveFace(selectedId.value);
-    selectedType.value = null;
-    selectedId.value = null;
-  } else if (selectedType.value === 'shelf' && selectedId.value) {
-    deleteShelfFromActiveFace(selectedId.value);
-    selectedType.value = null;
-    selectedId.value = null;
+  if (selectedType.value === 'shelf' && selectedKey.value != null) {
+    shelfDeleteModal.value = {
+      show: true,
+      shelfKey: selectedKey.value,
+    };
   }
 };
 
-/** 기둥 삭제 확인 모달에서 응답을 받아 실제 삭제를 수행합니다. */
-const handlePillarDeleteConfirm = (confirmed: boolean) => {
-  if (!pillarDeleteModal.value) return;
+/** 선반 삭제 확인 모달에서 응답을 받아 실제 삭제를 수행합니다. */
+const handleShelfDeleteConfirm = (confirmed: boolean) => {
+  if (!shelfDeleteModal.value) return;
 
   if (confirmed) {
-    deletePillarFromActiveFace(pillarDeleteModal.value.pillarId);
+    deleteShelfFromActiveFace(shelfDeleteModal.value.shelfKey);
     selectedType.value = null;
-    selectedId.value = null;
+    selectedKey.value = null;
   }
 
-  pillarDeleteModal.value = null;
+  shelfDeleteModal.value = null;
+};
+
+/** 섹션 삭제 요청 핸들러 */
+const handleSectionDeleteRequest = (sectionKey: number, shelvesCount: number) => {
+  sectionDeleteModal.value = {
+    show: true,
+    sectionKey,
+    shelvesCount,
+  };
+};
+
+/** 섹션 삭제 확인 모달에서 응답을 받아 실제 삭제를 수행합니다. */
+const handleSectionDeleteConfirm = (confirmed: boolean) => {
+  if (!sectionDeleteModal.value) return;
+
+  if (confirmed) {
+    store.removeSection(sectionDeleteModal.value.sectionKey);
+  }
+
+  sectionDeleteModal.value = null;
 };
 
 /** 방 형태 선택 핸들러 */
@@ -189,10 +248,9 @@ const handleShapeSelect = (shape: RoomShape) => {
   isShapeSelectorOpen.value = false;
 };
 
-/** 편집 버튼 클릭 핸들러 */
-const handleEdit = () => {
-  // 추후 편집 모드 진입 로직 추가 가능
-  showToast('편집 모드');
+/** 글로벌 설정 확인 핸들러 */
+const handleGlobalSettingsConfirm = () => {
+  showToast('설정이 저장되었습니다');
 };
 
 /** 사용자에게 알림을 표시합니다. */

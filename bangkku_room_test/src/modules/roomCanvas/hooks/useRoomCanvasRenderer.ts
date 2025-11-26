@@ -1,13 +1,15 @@
 // useRoomCanvasRenderer.ts: Canvas 렌더 파이프라인과 커서 업데이트 훅을 제공
 import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
-import { DragState, Pillar, RoomState, ScaleInfo, Shelf } from '../../../types';
+import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
-import { CornerImages, ShelfImages } from './useImageAssets';
+import { useRoomStore } from '../store';
+import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
 import { drawSkeletonRoom } from '../canvas/drawers/skeleton';
-import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions } from '../canvas/drawers/buttons';
+import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions, drawSectionDeleteButtons, calculateSectionDeleteButtonPositions } from '../canvas/drawers/buttons';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
+import { drawFrontWall, drawLeftWall, drawRightWall } from '../canvas/drawers/walls';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 
 interface UseRoomCanvasRendererParams {
@@ -16,9 +18,11 @@ interface UseRoomCanvasRendererParams {
   room: RoomState | Ref<RoomState>;
   pillars: Pillar[] | Ref<Pillar[]>;
   shelves: Shelf[] | Ref<Shelf[]>;
+  sections: Section[] | Ref<Section[]>;
   dragState: DragState | Ref<DragState>;
   cornerImages: Ref<CornerImages>;
   shelfImages: Ref<ShelfImages>;
+  wallImages: Ref<WallImages>;
   onScaleChange: (scaleInfo: ScaleInfo) => void;
 }
 
@@ -28,9 +32,11 @@ export function useRoomCanvasRenderer({
   room,
   pillars,
   shelves,
+  sections,
   dragState,
   cornerImages,
   shelfImages,
+  wallImages,
   onScaleChange,
 }: UseRoomCanvasRendererParams) {
   const scaleInfo = ref<ScaleInfo | null>(null);
@@ -40,7 +46,9 @@ export function useRoomCanvasRenderer({
    */
   const updateScaleInfo = (canvas: HTMLCanvasElement) => {
     const currentRoom = unref(room);
-    const newScaleInfo = calculateScale(canvas.width, canvas.height, currentRoom.roomWidthMm, currentRoom.roomHeightMm);
+    const store = useRoomStore();
+    const visualWidthConstraints = store.settings.value.visualWidthConstraints;
+    const newScaleInfo = calculateScale(canvas.width, canvas.height, currentRoom.roomWidthMm, currentRoom.roomHeightMm, visualWidthConstraints);
     scaleInfo.value = newScaleInfo;
     onScaleChange(newScaleInfo);
     return newScaleInfo;
@@ -60,6 +68,7 @@ export function useRoomCanvasRenderer({
     const currentRoom = unref(room);
     const currentPillars = unref(pillars);
     const currentShelves = unref(shelves);
+    const currentSections = unref(sections);
     const currentDragState = unref(dragState);
 
     const rect = container.getBoundingClientRect();
@@ -72,78 +81,89 @@ export function useRoomCanvasRenderer({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    drawSkeletonRoom(ctx, currentScaleInfo, currentRoom);
+    // 1. 스켈레톤 그리기 (파란/빨간 박스)
+    // drawSkeletonRoom(ctx, currentScaleInfo, currentRoom);
+    
+    // 2. 정면 벽 배경 이미지 (가장 뒤)
+    drawFrontWall(ctx, currentScaleInfo, wallImages.value);
+    
+    // 3. 좌우 벽 배경 이미지 (정면 벽보다 앞)
+    drawLeftWall(ctx, currentScaleInfo, wallImages.value);
+    drawRightWall(ctx, currentScaleInfo, wallImages.value);
+
     drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
 
-    const normalPillars = currentPillars.filter((p) => p.type !== 'wall');
-    if (normalPillars.length >= 2) {
-      const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo);
+    if (currentPillars.length >= 2 || currentSections.length > 0) {
+      const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
       drawAddShelfButtons(ctx, shelfButtons);
     }
 
+    // 섹션 삭제 버튼 그리기
+    if (currentSections.length > 0) {
+      const sectionDeleteButtons = calculateSectionDeleteButtonPositions(currentSections, currentPillars, currentScaleInfo);
+      drawSectionDeleteButtons(ctx, sectionDeleteButtons);
+    }
+
     currentPillars
-      .filter((pillar) => pillar.type !== 'wall')
-      .filter((pillar) => (pillar.pillarStyle || 'rear-single') !== 'dual')
+      .filter((pillar) => (pillar.pillarStyle || 'RS') !== 'DU')
       .forEach((pillar) => {
-        const isGhost = currentDragState.type === 'pillar' && currentDragState.targetId === pillar.id;
+        const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
           drawPillar(ctx, pillar, currentScaleInfo);
         }
       });
 
     currentShelves.forEach((shelf) => {
-      const isGhost = currentDragState.type === 'shelf' && currentDragState.targetId === shelf.id;
+      const isGhost = currentDragState.type === 'shelf' && currentDragState.targetKey === shelf.selfKey;
       if (!isGhost) {
-        drawShelf(ctx, shelf, currentPillars, currentScaleInfo, shelfImages.value);
+        drawShelf(ctx, shelf, currentPillars, currentSections, currentScaleInfo, shelfImages.value);
       }
     });
 
     drawCornerShelfImages(ctx, currentPillars, currentScaleInfo, currentRoom.roomWidthMm, cornerImages.value);
 
     currentPillars
-      .filter((pillar) => pillar.type !== 'wall')
-      .filter((pillar) => (pillar.pillarStyle || 'rear-single') === 'dual')
+      .filter((pillar) => (pillar.pillarStyle || 'RS') === 'DU')
       .forEach((pillar) => {
-        const isGhost = currentDragState.type === 'pillar' && currentDragState.targetId === pillar.id;
+        const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
           drawPillar(ctx, pillar, currentScaleInfo);
         }
       });
 
-    if (currentDragState.type === 'pillar' && currentDragState.targetId && currentDragState.originalXMm !== undefined) {
-      const ghostPillar = currentPillars.find((p) => p.id === currentDragState.targetId);
-      if (ghostPillar && ghostPillar.type !== 'wall') {
-        const pillarStyle = ghostPillar.pillarStyle || 'rear-single';
-        if (pillarStyle !== 'dual') {
+    if (currentDragState.type === 'pillar' && currentDragState.targetKey && currentDragState.originalX !== undefined) {
+      const ghostPillar = currentPillars.find((p) => p.pillarKey === currentDragState.targetKey);
+      if (ghostPillar) {
+        const pillarStyle = ghostPillar.pillarStyle || 'RS';
+        if (pillarStyle !== 'DU') {
           drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
         }
       }
     }
 
-    if (currentDragState.type === 'shelf' && currentDragState.targetId && currentDragState.originalHeightMm !== undefined) {
-      const ghostShelf = currentShelves.find((s) => s.id === currentDragState.targetId);
+    if (currentDragState.type === 'shelf' && currentDragState.targetKey && currentDragState.originalHeightMm !== undefined) {
+      const ghostShelf = currentShelves.find((s) => s.selfKey === currentDragState.targetKey);
       if (ghostShelf) {
-        drawGhostShelf(ctx, ghostShelf, currentPillars, currentScaleInfo, shelfImages.value);
+        drawGhostShelf(ctx, ghostShelf, currentPillars, currentSections, currentScaleInfo, shelfImages.value);
       }
     }
 
-    if (currentDragState.type === 'pillar' && currentDragState.targetId && currentDragState.originalXMm !== undefined) {
-      const ghostPillar = currentPillars.find((p) => p.id === currentDragState.targetId);
-      if (ghostPillar && ghostPillar.type !== 'wall') {
-        const pillarStyle = ghostPillar.pillarStyle || 'rear-single';
-        if (pillarStyle === 'dual') {
+    if (currentDragState.type === 'pillar' && currentDragState.targetKey && currentDragState.originalX !== undefined) {
+      const ghostPillar = currentPillars.find((p) => p.pillarKey === currentDragState.targetKey);
+      if (ghostPillar) {
+        const pillarStyle = ghostPillar.pillarStyle || 'RS';
+        if (pillarStyle === 'DU') {
           drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
         }
       }
     }
 
-    const normalPillarsForSpacing = currentPillars.filter((p) => p.type !== 'wall');
-    if (normalPillarsForSpacing.length >= 2) {
-      drawPillarSpacings(ctx, normalPillarsForSpacing, currentScaleInfo);
+    if (currentPillars.length >= 2) {
+      drawPillarSpacings(ctx, currentPillars, currentScaleInfo);
     }
 
     if (currentShelves.length > 0) {
-      drawShelfSpacings(ctx, currentShelves, currentPillars, currentScaleInfo);
+      drawShelfSpacings(ctx, currentShelves, currentPillars, currentSections, currentScaleInfo);
     }
   };
 
@@ -153,9 +173,11 @@ export function useRoomCanvasRenderer({
       () => unref(room),
       () => unref(pillars),
       () => unref(shelves),
+      () => unref(sections),
       () => unref(dragState),
       () => cornerImages.value,
       () => shelfImages.value,
+      () => wallImages.value,
     ],
     () => {
       render();
@@ -191,7 +213,8 @@ export function useCursorUpdater(
   canvasRef: Ref<HTMLCanvasElement | null>,
   scaleInfo: Ref<ScaleInfo | null>,
   pillars: Pillar[] | Ref<Pillar[]>,
-  shelves: Shelf[] | Ref<Shelf[]>
+  shelves: Shelf[] | Ref<Shelf[]>,
+  sections: Section[] | Ref<Section[]>
 ) {
   const updateCursor = (e: MouseEvent) => {
     const canvas = canvasRef.value;
@@ -199,6 +222,7 @@ export function useCursorUpdater(
 
     const currentPillars = unref(pillars);
     const currentShelves = unref(shelves);
+    const currentSections = unref(sections);
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -206,10 +230,12 @@ export function useCursorUpdater(
 
     const { redRect } = scaleInfo.value;
 
+    const store = useRoomStore();
+    const buttonSizes = store.settings.value.buttonSizes.pillarAdd;
     const buttonX = redRect.x + redRect.width * 0.3;
     const buttonY = redRect.y + redRect.height * 0.5;
-    const pillarButtonWidth = 70;
-    const pillarButtonHeight = 30;
+    const pillarButtonWidth = buttonSizes.width;
+    const pillarButtonHeight = buttonSizes.height;
 
     if (
       x >= buttonX - pillarButtonWidth / 2 &&
@@ -221,10 +247,10 @@ export function useCursorUpdater(
       return;
     }
 
-    const normalPillars = currentPillars.filter((p) => p.type !== 'wall');
-    if (normalPillars.length >= 2) {
-      const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, scaleInfo.value);
-      const shelfButtonRadius = 17.5;
+    if (currentPillars.length >= 2) {
+      const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, scaleInfo.value, currentSections);
+      const store = useRoomStore();
+      const shelfButtonRadius = store.settings.value.buttonSizes.shelfAdd.radius;
       for (const button of shelfButtons) {
         const distanceToShelfButton = Math.sqrt((x - button.x) ** 2 + (y - button.y) ** 2);
         if (distanceToShelfButton <= shelfButtonRadius) {
@@ -235,13 +261,16 @@ export function useCursorUpdater(
     }
 
     for (const shelf of currentShelves) {
-      const startPillar = currentPillars.find((p) => p.id === shelf.startPillarId);
-      const endPillar = currentPillars.find((p) => p.id === shelf.endPillarId);
+      const section = shelf.sectionKey != null ? currentSections.find((s) => s.sectionKey === shelf.sectionKey) : null;
+      if (!section) continue;
+
+      const startPillar = currentPillars.find((p) => p.pillarKey === section.startPillarKey);
+      const endPillar = currentPillars.find((p) => p.pillarKey === section.endPillarKey);
       if (!startPillar || !endPillar) continue;
 
-      const startX = mmToPxX(startPillar.xMm, scaleInfo.value);
-      const endX = mmToPxX(endPillar.xMm, scaleInfo.value);
-      const shelfY = mmToPxY(shelf.heightMm, scaleInfo.value);
+      const startX = mmToPxX(startPillar.x, scaleInfo.value);
+      const endX = mmToPxX(endPillar.x, scaleInfo.value);
+      const shelfY = mmToPxY(shelf.y, scaleInfo.value);
       const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
 
       if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
@@ -252,9 +281,7 @@ export function useCursorUpdater(
 
     const pillarWidthPx = PILLAR_SHELF_CONSTRAINTS.PILLAR_WIDTH_PX;
     for (const pillar of currentPillars) {
-      if (pillar.type === 'wall') continue;
-
-      const pillarX = mmToPxX(pillar.xMm, scaleInfo.value);
+      const pillarX = mmToPxX(pillar.x, scaleInfo.value);
       if (
         x >= pillarX - pillarWidthPx / 2 - 5 &&
         x <= pillarX + pillarWidthPx / 2 + 5 &&

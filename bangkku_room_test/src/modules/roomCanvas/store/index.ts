@@ -2,13 +2,18 @@
 import { ref, computed, readonly } from 'vue';
 import { MultiRoomState, createInitialRoomState, reinitializeFacesForShape } from '../models/roomState';
 import { RoomShape, FaceId, getActiveFaces } from '../models/roomShape';
-import { RoomFaceState, FaceDimensions } from '../models/roomFace';
-import { Pillar, Shelf } from '../../../types';
+import { RoomFaceState } from '../models/roomFace';
+import { Pillar, Shelf, Section, GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from '../../../types';
 
 /**
  * 전역 방 상태
  */
 const roomState = ref<MultiRoomState>(createInitialRoomState());
+
+/**
+ * 전역 설정 상태
+ */
+const globalSettings = ref<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
 
 /**
  * 방 스토어 훅
@@ -42,12 +47,19 @@ export function useRoomStore() {
   const activeFace = computed(() => roomState.value.faces[roomState.value.activeFaceId]);
 
   /**
-   * 현재 활성 면의 치수
+   * 현재 활성 면의 치수/공간 정보
    */
-  const activeFaceDimensions = computed(() => activeFace.value.dimensions);
+  const activeFaceMetrics = computed(() => ({
+    space_x: activeFace.value.space_x,
+    space_y: activeFace.value.space_y,
+    face_x: activeFace.value.face_x,
+    face_y: activeFace.value.face_y,
+    face_count: activeFace.value.face_count,
+  }));
 
   /**
    * 현재 활성 면의 기둥 배열
+   * 
    */
   const activeFacePillars = computed(() => activeFace.value.pillars);
 
@@ -55,6 +67,11 @@ export function useRoomStore() {
    * 현재 활성 면의 선반 배열
    */
   const activeFaceShelves = computed(() => activeFace.value.shelves);
+
+  /**
+   * 현재 활성 면의 섹션 배열
+   */
+  const activeFaceSections = computed(() => activeFace.value.sections);
 
   /**
    * 현재 방 형태에서 사용 가능한 면 ID 배열
@@ -65,6 +82,11 @@ export function useRoomStore() {
    * 모든 면 상태 배열
    */
   const allFaces = computed(() => Object.values(roomState.value.faces));
+
+  /**
+   * 전역 설정
+   */
+  const settings = computed(() => globalSettings.value);
 
   // ===== Actions =====
 
@@ -95,23 +117,25 @@ export function useRoomStore() {
   };
 
   /**
-   * 특정 면의 치수 업데이트
+   * 특정 면의 치수/공간 정보 업데이트
    */
-  const updateFaceDimensions = (faceId: FaceId, dimensions: Partial<FaceDimensions>) => {
+  const updateFaceMetrics = (
+    faceId: FaceId,
+    metrics: Partial<Pick<RoomFaceState, 'space_x' | 'space_y' | 'face_x' | 'face_y' | 'face_count'>>
+  ) => {
     const face = roomState.value.faces[faceId];
     if (face) {
-      face.dimensions = {
-        ...face.dimensions,
-        ...dimensions,
-      };
+      Object.assign(face, metrics);
     }
   };
 
   /**
-   * 현재 활성 면의 치수 업데이트
+   * 현재 활성 면의 치수/공간 정보 업데이트
    */
-  const updateActiveFaceDimensions = (dimensions: Partial<FaceDimensions>) => {
-    updateFaceDimensions(roomState.value.activeFaceId, dimensions);
+  const updateActiveFaceMetrics = (
+    metrics: Partial<Pick<RoomFaceState, 'space_x' | 'space_y' | 'face_x' | 'face_y' | 'face_count'>>
+  ) => {
+    updateFaceMetrics(roomState.value.activeFaceId, metrics);
   };
 
   /**
@@ -151,13 +175,151 @@ export function useRoomStore() {
   };
 
   /**
-   * 특정 면의 모든 가구(기둥/선반) 초기화
+   * 특정 면의 섹션 배열 설정
+   */
+  const setFaceSections = (faceId: FaceId, sections: Section[]) => {
+    const face = roomState.value.faces[faceId];
+    if (face) {
+      face.sections = sections;
+    }
+  };
+
+  /**
+   * 현재 활성 면의 섹션 배열 설정
+   */
+  const setActiveFaceSections = (sections: Section[]) => {
+    setFaceSections(roomState.value.activeFaceId, sections);
+  };
+
+  /**
+   * 섹션 추가
+   */
+  const addSection = (section: Section) => {
+    const face = activeFace.value;
+    face.sections = [...face.sections, section];
+  };
+
+  /**
+   * 섹션 삭제 (경계 기둥 처리 및 오른쪽 섹션 왼쪽 정렬 포함)
+   */
+  const removeSection = (sectionKey: number) => {
+    const face = activeFace.value;
+    const sectionToRemove = face.sections.find((s) => s.sectionKey === sectionKey);
+    
+    if (!sectionToRemove) return;
+
+    // 삭제할 섹션의 기둥 위치 확인
+    const startPillar = face.pillars.find((p) => p.pillarKey === sectionToRemove.startPillarKey);
+    const endPillar = face.pillars.find((p) => p.pillarKey === sectionToRemove.endPillarKey);
+    
+    if (!startPillar || !endPillar) return;
+
+    // 삭제할 섹션의 너비 계산 (이만큼 오른쪽 기둥들을 왼쪽으로 이동)
+    const sectionWidth = endPillar.x - startPillar.x;
+
+    // 섹션 내 모든 선반 삭제
+    const shelvesToRemove = sectionToRemove.shelves.map((s) => s.selfKey);
+    face.shelves = face.shelves.filter((s) => !shelvesToRemove.includes(s.selfKey));
+
+    // 섹션들을 기둥 위치 기준으로 정렬 (startPillar의 x 기준)
+    const sortedSections = [...face.sections]
+      .filter((s) => s.sectionKey !== sectionKey)
+      .map((s) => {
+        const sStartPillar = face.pillars.find((p) => p.pillarKey === s.startPillarKey);
+        return { section: s, startX: sStartPillar?.x ?? 0 };
+      })
+      .sort((a, b) => a.startX - b.startX);
+
+    // 삭제할 섹션의 오른쪽 섹션들 찾기
+    const rightSections = sortedSections
+      .filter(({ section, startX }) => {
+        return startX >= endPillar.x || section.startPillarKey === sectionToRemove.endPillarKey;
+      })
+      .map(({ section }) => section);
+
+    // 오른쪽 섹션들의 모든 기둥들을 왼쪽으로 이동
+    if (rightSections.length > 0) {
+      // 오른쪽 섹션들에 포함된 모든 기둥 키 수집 (endPillar 제외)
+      const rightSectionPillarKeys = new Set<number>();
+      rightSections.forEach((section) => {
+        if (section.startPillarKey !== sectionToRemove.endPillarKey) {
+          rightSectionPillarKeys.add(section.startPillarKey);
+        }
+        rightSectionPillarKeys.add(section.endPillarKey);
+      });
+      rightSectionPillarKeys.delete(sectionToRemove.endPillarKey);
+
+      face.pillars = face.pillars.map((pillar) => {
+        if (rightSectionPillarKeys.has(pillar.pillarKey)) {
+          return {
+            ...pillar,
+            x: pillar.x - sectionWidth,
+          };
+        }
+        return pillar;
+      });
+
+      const firstRightSection = rightSections[0];
+      firstRightSection.startPillarKey = sectionToRemove.startPillarKey;
+      
+      const newStartPillar = face.pillars.find((p) => p.pillarKey === firstRightSection.startPillarKey);
+      const newEndPillar = face.pillars.find((p) => p.pillarKey === firstRightSection.endPillarKey);
+      if (newStartPillar && newEndPillar) {
+        firstRightSection.x = newEndPillar.x - newStartPillar.x;
+      }
+      
+      firstRightSection.shelves.forEach((shelf) => {
+        shelf.sectionKey = sectionToRemove.sectionKey;
+      });
+
+      for (let i = 1; i < rightSections.length; i++) {
+        const currentSection = rightSections[i];
+        const previousSection = rightSections[i - 1];
+        
+        currentSection.startPillarKey = previousSection.endPillarKey;
+        
+        const currentStartPillar = face.pillars.find((p) => p.pillarKey === currentSection.startPillarKey);
+        const currentEndPillar = face.pillars.find((p) => p.pillarKey === currentSection.endPillarKey);
+        if (currentStartPillar && currentEndPillar) {
+          currentSection.x = currentEndPillar.x - currentStartPillar.x;
+        }
+        
+        currentSection.shelves.forEach((shelf) => {
+          shelf.sectionKey = previousSection.sectionKey;
+        });
+      }
+    }
+
+    // 섹션 삭제
+    face.sections = face.sections.filter((s) => s.sectionKey !== sectionKey);
+
+    // 경계 기둥 처리: 다른 섹션에서 사용하지 않는 기둥 삭제
+    const pillarsToCheck = [sectionToRemove.startPillarKey, sectionToRemove.endPillarKey];
+    const pillarsToRemove = pillarsToCheck.filter((pillarKey) =>
+      !isPillarUsedByOtherSections(pillarKey, sectionKey, face.sections)
+    );
+    
+    face.pillars = face.pillars.filter((p) => !pillarsToRemove.includes(p.pillarKey));
+  };
+
+  /**
+   * 기둥이 다른 섹션에서 사용 중인지 확인
+   */
+  const isPillarUsedByOtherSections = (pillarKey: number, currentSectionKey: number, sections: Section[]): boolean => {
+    return sections
+      .filter((s) => s.sectionKey !== currentSectionKey)
+      .some((s) => s.startPillarKey === pillarKey || s.endPillarKey === pillarKey);
+  };
+
+  /**
+   * 특정 면의 모든 가구(기둥/선반/섹션) 초기화
    */
   const clearFaceFurniture = (faceId: FaceId) => {
     const face = roomState.value.faces[faceId];
     if (face) {
       face.pillars = [];
       face.shelves = [];
+      face.sections = [];
       face.hasShelf = false;
     }
   };
@@ -181,9 +343,10 @@ export function useRoomStore() {
    */
   const setPillarStyleAllFaces = (style: Pillar['pillarStyle']) => {
     Object.values(roomState.value.faces).forEach((face) => {
-      face.pillars = face.pillars.map((pillar) =>
-        pillar.type === 'wall' ? pillar : { ...pillar, pillarStyle: style }
-      );
+      face.pillars = face.pillars.map((pillar) => ({
+        ...pillar,
+        pillarStyle: style,
+      }));
     });
   };
 
@@ -201,6 +364,23 @@ export function useRoomStore() {
     return roomState.value.faces[faceId];
   };
 
+  /**
+   * 전역 설정 업데이트
+   */
+  const updateGlobalSettings = (newSettings: Partial<GlobalSettings>) => {
+    globalSettings.value = {
+      ...globalSettings.value,
+      ...newSettings,
+    };
+  };
+
+  /**
+   * 전역 설정 초기화
+   */
+  const resetGlobalSettings = () => {
+    globalSettings.value = DEFAULT_GLOBAL_SETTINGS;
+  };
+
   return {
     // Getters
     state: readonly(state),
@@ -208,28 +388,35 @@ export function useRoomStore() {
     roomShape: readonly(roomShape),
     roomName: readonly(roomName),
     activeFace: readonly(activeFace),
-    activeFaceDimensions: readonly(activeFaceDimensions),
+    activeFaceMetrics: readonly(activeFaceMetrics),
     activeFacePillars: readonly(activeFacePillars),
     activeFaceShelves: readonly(activeFaceShelves),
+    activeFaceSections: readonly(activeFaceSections),
     availableFaces: readonly(availableFaces),
     allFaces: readonly(allFaces),
+    settings: readonly(settings),
     
     // Actions
     setRoomName,
     setRoomShape,
     setActiveFaceId,
-    updateFaceDimensions,
-    updateActiveFaceDimensions,
+    updateFaceMetrics,
+    updateActiveFaceMetrics,
     setFacePillars,
     setActiveFacePillars,
     setFaceShelves,
     setActiveFaceShelves,
+    setActiveFaceSections,
+    addSection,
+    removeSection,
     setPillarStyleAllFaces,
     clearFaceFurniture,
     clearActiveFaceFurniture,
     resetRoom,
     loadRoomState,
     getFaceState,
+    updateGlobalSettings,
+    resetGlobalSettings,
   };
 }
 

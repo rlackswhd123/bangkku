@@ -1,14 +1,25 @@
 <!-- RoomHeader.vue: 방 정보 및 면 전환/크기 설정 헤더 컴포넌트 -->
 <template>
   <div :style="containerStyle">
-    <!-- 좌측: 방 이름 및 형태 표시 -->
+    <!-- 좌측: 방 이름 -->
     <div :style="leftSectionStyle">
       <div :style="roomNameStyle">{{ roomName }}</div>
-      <div :style="roomShapeStyle">{{ roomShapeLabel }}</div>
     </div>
 
-    <!-- 중앙: 면 탭 -->
+    <!-- 중앙: 방 형태 표시 및 면 탭 -->
     <div :style="centerSectionStyle">
+      <div :style="roomShapeContainerStyle">
+        <div :style="roomShapeStyle">{{ roomShapeLabel }}</div>
+        <!-- 방 형태 변경 버튼 -->
+        <button
+          @click="handleShapeChangeClick"
+          :style="shapeButtonStyle"
+          @mouseenter="handleButtonHover"
+          @mouseleave="handleButtonLeave"
+        >
+          구조 변경
+        </button>
+      </div>
       <div :style="tabsContainerStyle">
         <div
           v-for="faceId in availableFaces"
@@ -24,56 +35,16 @@
       </div>
     </div>
 
-    <!-- 우측: 크기 입력 및 설정 버튼 -->
+    <!-- 우측: 설정 버튼 -->
     <div :style="rightSectionStyle">
-      <!-- 폭 입력 -->
-      <div :style="inputGroupStyle">
-        <label :style="inputLabelStyle">폭</label>
-        <input
-          type="number"
-          :value="activeFaceDimensions.widthMm"
-          @input="handleWidthChange"
-          :style="inputStyle"
-          min="1200"
-          max="6000"
-          step="100"
-        />
-        <span :style="unitStyle">mm</span>
-      </div>
-
-      <!-- 높이 입력 -->
-      <div :style="inputGroupStyle">
-        <label :style="inputLabelStyle">높이</label>
-        <input
-          type="number"
-          :value="activeFaceDimensions.heightMm"
-          @input="handleHeightChange"
-          :style="inputStyle"
-          min="2000"
-          max="3000"
-          step="100"
-        />
-        <span :style="unitStyle">mm</span>
-      </div>
-
-      <!-- 방 형태 변경 버튼 -->
+      <!-- 설정 버튼 -->
       <button
-        @click="handleShapeChangeClick"
-        :style="shapeButtonStyle"
+        @click="handleSettingsClick"
+        :style="settingsButtonStyle"
         @mouseenter="handleButtonHover"
         @mouseleave="handleButtonLeave"
       >
-        형태 변경
-      </button>
-
-      <!-- 편집 버튼 -->
-      <button
-        @click="handleEditClick"
-        :style="editButtonStyle"
-        @mouseenter="handleButtonHover"
-        @mouseleave="handleButtonLeave"
-      >
-        편집
+        설정
       </button>
     </div>
   </div>
@@ -87,7 +58,7 @@ import { FaceId } from '../modules/roomCanvas/models/roomShape';
 
 const emit = defineEmits<{
   shapeChange: [];
-  edit: [];
+  settings: [];
 }>();
 
 const store = useRoomStore();
@@ -97,16 +68,10 @@ const roomName = computed(() => store.roomName.value);
 const roomShape = computed(() => store.roomShape.value);
 const activeFaceId = computed(() => store.activeFaceId.value);
 const availableFaces = computed(() => store.availableFaces.value);
-const activeFaceDimensions = computed(() => store.activeFaceDimensions.value);
 
 const roomShapeLabel = computed(() => {
-  const shapeMap: Record<string, string> = {
-    'ㄱ': 'ㄱ자 방',
-    'ㄴ': 'ㄴ자 방',
-    'ㄷ': 'ㄷ자 방',
-    'ㅁ': 'ㅁ자 방',
-  };
-  return shapeMap[roomShape.value] || '';
+  const shapeMap = store.settings.value.roomShapeLabels;
+  return shapeMap[roomShape.value as keyof typeof shapeMap] || '';
 });
 
 // 면별 상태 확인
@@ -120,26 +85,12 @@ const handleFaceSwitch = (faceId: FaceId) => {
   store.setActiveFaceId(faceId);
 };
 
-const handleWidthChange = (e: Event) => {
-  const value = parseInt((e.target as HTMLInputElement).value, 10);
-  if (!isNaN(value)) {
-    store.updateActiveFaceDimensions({ widthMm: value });
-  }
-};
-
-const handleHeightChange = (e: Event) => {
-  const value = parseInt((e.target as HTMLInputElement).value, 10);
-  if (!isNaN(value)) {
-    store.updateActiveFaceDimensions({ heightMm: value });
-  }
-};
-
 const handleShapeChangeClick = () => {
   emit('shapeChange');
 };
 
-const handleEditClick = () => {
-  emit('edit');
+const handleSettingsClick = () => {
+  emit('settings');
 };
 
 // 탭 스타일 계산
@@ -200,15 +151,25 @@ const roomNameStyle = {
   color: '#333',
 };
 
-const roomShapeStyle = {
-  fontSize: '13px',
-  color: '#999',
-};
-
 const centerSectionStyle = {
   flex: 1,
   display: 'flex',
+  flexDirection: 'column' as const,
+  alignItems: 'center',
   justifyContent: 'center',
+  gap: '12px',
+};
+
+const roomShapeContainerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+};
+
+const roomShapeStyle = {
+  fontSize: '20px',
+  color: '#999',
+  fontWeight: 'bold',
 };
 
 const tabsContainerStyle = {
@@ -246,32 +207,6 @@ const rightSectionStyle = {
   gap: '16px',
 };
 
-const inputGroupStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-};
-
-const inputLabelStyle = {
-  fontSize: '13px',
-  color: '#666',
-  fontWeight: '500',
-};
-
-const inputStyle = {
-  width: '80px',
-  padding: '6px 10px',
-  border: '1px solid #e0e0e0',
-  borderRadius: '6px',
-  fontSize: '13px',
-  textAlign: 'center' as const,
-};
-
-const unitStyle = {
-  fontSize: '12px',
-  color: '#999',
-};
-
 const shapeButtonStyle = {
   padding: '8px 16px',
   fontSize: '13px',
@@ -284,7 +219,7 @@ const shapeButtonStyle = {
   transition: 'background-color 0.2s',
 };
 
-const editButtonStyle = {
+const settingsButtonStyle = {
   padding: '8px 16px',
   fontSize: '13px',
   fontWeight: '600',

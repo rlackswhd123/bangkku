@@ -20,8 +20,7 @@
               @mouseleave="handleCardLeave('ㄱ', $event)"
             >
               <div :style="shapeIconStyle">ㄱ</div>
-              <div :style="shapeNameStyle">ㄱ자 방</div>
-              <div :style="shapeDescStyle">2개 면 사용</div>
+              <div :style="shapeNameStyle">{{ roomShapeLabels['ㄱ'] }}</div>
             </div>
 
             <!-- ㄴ자 방 -->
@@ -32,8 +31,7 @@
               @mouseleave="handleCardLeave('ㄴ', $event)"
             >
               <div :style="shapeIconStyle">ㄴ</div>
-              <div :style="shapeNameStyle">ㄴ자 방</div>
-              <div :style="shapeDescStyle">3개 면 사용</div>
+              <div :style="shapeNameStyle">{{ roomShapeLabels['ㄴ'] }}</div>
             </div>
 
             <!-- ㄷ자 방 -->
@@ -44,8 +42,7 @@
               @mouseleave="handleCardLeave('ㄷ', $event)"
             >
               <div :style="shapeIconStyle">ㄷ</div>
-              <div :style="shapeNameStyle">ㄷ자 방</div>
-              <div :style="shapeDescStyle">4개 면 사용</div>
+              <div :style="shapeNameStyle">{{ roomShapeLabels['ㄷ'] }}</div>
             </div>
 
             <!-- ㅁ자 방 -->
@@ -56,8 +53,7 @@
               @mouseleave="handleCardLeave('ㅁ', $event)"
             >
               <div :style="shapeIconStyle">ㅁ</div>
-              <div :style="shapeNameStyle">ㅁ자 방</div>
-              <div :style="shapeDescStyle">4개 면 사용</div>
+              <div :style="shapeNameStyle">{{ roomShapeLabels['ㅁ'] }}</div>
             </div>
           </div>
         </div>
@@ -79,8 +75,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { RoomShape } from '../modules/roomCanvas/models/roomShape';
+import { useRoomStore } from '../modules/roomCanvas/store';
 
 interface Props {
   isOpen: boolean;
@@ -92,6 +89,9 @@ const emit = defineEmits<{
   close: [];
   select: [shape: RoomShape];
 }>();
+
+const store = useRoomStore();
+const roomShapeLabels = computed(() => store.settings.value.roomShapeLabels);
 
 const selectedShape = ref<RoomShape | null>(null);
 const hoveredShape = ref<RoomShape | null>(null);

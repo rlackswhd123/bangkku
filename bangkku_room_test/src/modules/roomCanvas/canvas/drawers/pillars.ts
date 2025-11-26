@@ -2,6 +2,7 @@
 import { Pillar, ScaleInfo } from '../../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../../types';
 import { mmToPxX } from '../../../../utils/coordinates';
+import { useRoomStore } from '../../store';
 
 export function drawPillar(
   ctx: CanvasRenderingContext2D,
@@ -10,24 +11,26 @@ export function drawPillar(
 ) {
   const { redRect } = scaleInfo;
   const pillarWidthPx = PILLAR_SHELF_CONSTRAINTS.PILLAR_WIDTH_PX;
-  const pillarX = mmToPxX(pillar.xMm, scaleInfo) - pillarWidthPx / 2;
+  const pillarX = mmToPxX(pillar.x, scaleInfo) - pillarWidthPx / 2;
   const pillarY = redRect.y;
   const pillarHeight = redRect.height;
 
-  const pillarStyle = pillar.pillarStyle || 'rear-single';
+  const pillarStyle = pillar.pillarStyle || 'RS';
+  const store = useRoomStore();
+  const pillarStyleColors = store.settings.value.pillarStyleColors;
   let pillarColor: string;
   switch (pillarStyle) {
-    case 'rear-single':
-      pillarColor = '#000000';
+    case 'RS':
+      pillarColor = pillarStyleColors.RS;
       break;
-    case 'center-single':
-      pillarColor = '#808080';
+    case 'CS':
+      pillarColor = pillarStyleColors.CS;
       break;
-    case 'dual':
-      pillarColor = '#D3D3D3';
+    case 'DU':
+      pillarColor = pillarStyleColors.DU;
       break;
     default:
-      pillarColor = '#FF8C00';
+      pillarColor = pillarStyleColors.default;
   }
 
   ctx.fillStyle = pillarColor;

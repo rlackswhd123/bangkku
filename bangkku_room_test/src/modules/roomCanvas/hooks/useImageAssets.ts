@@ -3,9 +3,11 @@ import { ref, onMounted } from 'vue';
 
 type CornerImageKey = 111 | 222 | 333 | 444;
 type ShelfImageKey = 'normal' | 'drawer' | 'hanger';
+type WallImageKey = 'front' | 'left' | 'right';
 
 export type CornerImages = Record<CornerImageKey, HTMLImageElement | null>;
 export type ShelfImages = Record<ShelfImageKey, HTMLImageElement | null>;
+export type WallImages = Record<WallImageKey, HTMLImageElement | null>;
 
 const INITIAL_CORNER_IMAGES: CornerImages = {
   111: null,
@@ -18,6 +20,12 @@ const INITIAL_SHELF_IMAGES: ShelfImages = {
   normal: null,
   drawer: null,
   hanger: null,
+};
+
+const INITIAL_WALL_IMAGES: WallImages = {
+  front: null,
+  left: null,
+  right: null,
 };
 
 const CORNER_IMAGE_PATHS: Record<CornerImageKey, string> = {
@@ -37,6 +45,14 @@ const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string> = {
 
 const SHELF_IMAGE_KEYS: ShelfImageKey[] = ['normal', 'drawer', 'hanger'];
 
+const WALL_IMAGE_PATHS: Record<WallImageKey, string> = {
+  front: new URL('../../../images/rooms/정면벽2.png', import.meta.url).href,
+  left: new URL('../../../images/rooms/왼쪽벽2.png', import.meta.url).href,
+  right: new URL('../../../images/rooms/오른쪽벽2.png', import.meta.url).href,
+};
+
+const WALL_IMAGE_KEYS: WallImageKey[] = ['front', 'left', 'right'];
+
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -46,11 +62,12 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
   });
 
 /**
- * 코너/선반 PNG 리소스를 사전에 로드해 캔버스 렌더와 패널에서 공유합니다.
+ * 코너/선반/벽 PNG 리소스를 사전에 로드해 캔버스 렌더와 패널에서 공유합니다.
  */
 export function useImageAssets() {
   const cornerImages = ref<CornerImages>({ ...INITIAL_CORNER_IMAGES });
   const shelfImages = ref<ShelfImages>({ ...INITIAL_SHELF_IMAGES });
+  const wallImages = ref<WallImages>({ ...INITIAL_WALL_IMAGES });
 
   onMounted(() => {
     Promise.all(
@@ -80,7 +97,21 @@ export function useImageAssets() {
         shelfImages.value = mapped;
       })
       .catch(console.error);
+
+    Promise.all(
+      WALL_IMAGE_KEYS.map((key) =>
+        loadImage(WALL_IMAGE_PATHS[key]).then((image) => ({ key, image }))
+      )
+    )
+      .then((loaded) => {
+        const mapped = loaded.reduce<WallImages>((acc, { key, image }) => {
+          acc[key] = image;
+          return acc;
+        }, { ...INITIAL_WALL_IMAGES });
+        wallImages.value = mapped;
+      })
+      .catch(console.error);
   });
 
-  return { cornerImages, shelfImages };
+  return { cornerImages, shelfImages, wallImages };
 }

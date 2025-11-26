@@ -25,14 +25,19 @@ export function pixelToMm(
  * 방 크기에 맞는 스케일 및 사각형 위치 계산 (PRD 기준)
  * - 파란 사각형: 고정된 외곽 프레임
  * - 빨간 사각형: 방 크기에 따라 시각적으로 커지거나 작아짐
- * - scaleX는 고정되어 내부 요소들의 시각적 거리는 유지됨
+ * - 화면에 표시되는 시각적 폭은 설정값으로 제한됨 (사용자 입력은 그 이상/이하 가능)
  */
 export function calculateScale(
   canvasWidth: number,
   canvasHeight: number,
   roomWidthMm: number,
-  roomHeightMm: number
+  roomHeightMm: number,
+  visualWidthConstraints?: { min: number; max: number }
 ): ScaleInfo {
+  // 화면 표현용 폭 제한 (실제 입력 값은 제한 없음)
+  const MIN_VISUAL_WIDTH_MM = visualWidthConstraints?.min ?? 2000;
+  const MAX_VISUAL_WIDTH_MM = visualWidthConstraints?.max ?? 5000;
+  
   // 파란 사각형: 캔버스의 90% 정도를 차지하도록 고정
   const BLUE_RECT_MARGIN = 0.05; // 5% 여백
   const blueWidth = canvasWidth * (1 - BLUE_RECT_MARGIN * 2);
@@ -43,18 +48,31 @@ export function calculateScale(
   // 빨간 사각형 높이는 고정 (캔버스 높이의 60% 정도)
   const FIXED_RED_HEIGHT = canvasHeight * 0.6;
   
-  // scaleX를 고정값으로 설정 (기본 방 크기 기준)
+  // 기본 스케일 계산 (기본 방 크기 기준)
   // 기본 방 크기(DEFAULT_ROOM.roomWidthMm = 5000mm)가 파란 네모의 70%를 차지하도록 설정
   const DEFAULT_ROOM_WIDTH_MM = 5000;
   const marginFactor = 0.7; // 파란 사각형 안에 여백을 남김
-  const scaleX = (blueWidth * marginFactor) / DEFAULT_ROOM_WIDTH_MM;
+  const baseScaleX = (blueWidth * marginFactor) / DEFAULT_ROOM_WIDTH_MM;
+  
+  // 실제 방 폭을 기본 스케일로 계산한 픽셀 폭
+  const unclampedWidthPx = roomWidthMm * baseScaleX;
+  
+  // 최소/최대 시각적 폭을 픽셀로 변환
+  const minWidthPx = MIN_VISUAL_WIDTH_MM * baseScaleX;
+  const maxWidthPx = MAX_VISUAL_WIDTH_MM * baseScaleX;
+  
+  // 시각적 폭을 2000~5000mm 범위로 제한
+  const visualWidthPx = Math.min(Math.max(unclampedWidthPx, minWidthPx), maxWidthPx);
+  
+  // 제한된 시각적 폭을 기준으로 새 scaleX 계산
+  const scaleX = roomWidthMm > 0 ? visualWidthPx / roomWidthMm : baseScaleX;
   
   // scaleY: 높이용 스케일 (roomHeightMm 기준으로 고정, 폭 변경과 무관)
   const scaleY = FIXED_RED_HEIGHT / roomHeightMm;
   
-  // 빨간 사각형 크기 계산 (방 크기에 따라 시각적으로 커지거나 작아짐)
+  // 빨간 사각형 크기 계산
   const redWidthPx = roomWidthMm * scaleX;
-  const redHeightPx = roomHeightMm * scaleY;  // 또는 FIXED_RED_HEIGHT와 동일
+  const redHeightPx = roomHeightMm * scaleY;
   
   // 빨간 사각형이 파란 사각형을 벗어나지 않도록 제한
   const maxRedWidth = blueWidth * 0.95; // 파란 네모의 95%를 넘지 않도록
@@ -67,7 +85,7 @@ export function calculateScale(
   const redY = blueCenterY - redHeightPx / 2;
   
   return {
-    scaleX, // 고정된 scaleX 사용
+    scaleX, // 시각적 폭 제한이 반영된 scaleX
     scaleY,
     blueRect: {
       x: blueX,
@@ -118,17 +136,9 @@ export function pxToMmY(yPx: number, scaleInfo: ScaleInfo): number {
 }
 
 /**
- * mm를 미터로 변환하여 표시용 문자열 생성
+ * 그리드 스냅: 값을 그리드 간격 단위로 반올림
  */
-export function formatMmToDisplay(mm: number): string {
-  const meters = (mm / 1000).toFixed(1);
-  return `${mm}mm (${meters}m)`;
-}
-
-/**
- * 그리드 스냅: 값을 그리드 간격(100mm) 단위로 반올림
- */
-export function snapToGrid(valueMm: number, gridSizeMm: number = 100): number {
+export function snapToGrid(valueMm: number, gridSizeMm: number): number {
   return Math.round(valueMm / gridSizeMm) * gridSizeMm;
 }
 

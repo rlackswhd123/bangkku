@@ -41,7 +41,7 @@
               @click.stop
             >
               <div
-                v-for="style in (['rear-single', 'center-single', 'dual'] as const)"
+                v-for="style in (['RS', 'CS', 'DU'] as const)"
                 :key="style"
                 @click="handlePillarStyleChange(style)"
                 :style="getPillarStyleMenuItemStyle(style)"
@@ -204,44 +204,61 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type CSSProperties } from 'vue';
-import { Pillar, Shelf, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo } from '../types';
+import { ref, computed, type CSSProperties, type Ref } from 'vue';
+import { Pillar, Shelf, Section, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo } from '../types';
 import { mmToPxX, mmToPxY, pxToMmX, pxToMmY, snapToGrid } from '../utils/coordinates';
 import { useImageAssets } from '../modules/roomCanvas/hooks/useImageAssets';
 import { useRoomCanvasRenderer, useCursorUpdater } from '../modules/roomCanvas/hooks/useRoomCanvasRenderer';
-import { calculateShelfButtonPositions } from '../modules/roomCanvas/canvas/drawers/buttons';
+import { calculateShelfButtonPositions, calculateSectionDeleteButtonPositions } from '../modules/roomCanvas/canvas/drawers/buttons';
 import { createPillarPositionValidator, createShelfPositionValidator } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
-  objectSelect: [type: 'pillar' | 'shelf' | null, id: string | null];
+  objectSelect: [type: 'pillar' | 'shelf' | null, key: number | null];
   showToast: [message: string];
+  sectionDeleteRequest: [sectionKey: number, shelvesCount: number];
 }>();
 
 const store = useRoomStore();
 
+let tempKeyCounter = 1;
+const createTempKey = () => Date.now() + tempKeyCounter++;
+const createPillar = (x: number, cornerYn = false): Pillar => ({
+  pillarKey: createTempKey(),
+  x,
+  cornerYn,
+  pillarStyle: selectedPillarStyle.value,
+});
+const createSection = (start: Pillar, end: Pillar): Section => ({
+  sectionKey: createTempKey(),
+  startPillarKey: start.pillarKey,
+  endPillarKey: end.pillarKey,
+  x: end.x - start.x,
+  shelves: [],
+});
+
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
-const { cornerImages, shelfImages } = useImageAssets();
+const { cornerImages, shelfImages, wallImages } = useImageAssets();
 
 // 기둥/선반 드래그 상태
 const dragState = ref<DragState>({
   type: null,
-  targetId: null,
+  targetKey: null,
 });
 
 // 스토어에서 현재 활성 면 데이터 가져오기
-const activeFace = computed(() => store.activeFace.value);
-const activeFaceDimensions = computed(() => store.activeFaceDimensions.value);
-const activeFacePillars = computed(() => store.activeFacePillars.value);
-const activeFaceShelves = computed(() => store.activeFaceShelves.value);
+const activeFaceMetrics = computed(() => store.activeFaceMetrics.value);
+const activeFacePillars = computed<Pillar[]>(() => store.activeFacePillars.value as Pillar[]) as Ref<Pillar[]>;
+const activeFaceShelves = computed<Shelf[]>(() => store.activeFaceShelves.value as Shelf[]) as Ref<Shelf[]>;
+const activeFaceSections = computed<Section[]>(() => store.activeFaceSections.value as Section[]) as Ref<Section[]>;
 
 // RoomState 형식으로 변환 (기존 렌더러와 호환)
 const roomState = computed(() => ({
-  roomWidthMm: activeFaceDimensions.value.widthMm,
-  roomHeightMm: activeFaceDimensions.value.heightMm,
-  roomDepthMm: activeFaceDimensions.value.depthMm,
+  roomWidthMm: activeFaceMetrics.value.face_x,
+  roomHeightMm: activeFaceMetrics.value.face_y,
+  roomDepthMm: activeFaceMetrics.value.space_y,
 }));
 
 const scaleInfo = useRoomCanvasRenderer({
@@ -250,22 +267,25 @@ const scaleInfo = useRoomCanvasRenderer({
   room: roomState,
   pillars: activeFacePillars,
   shelves: activeFaceShelves,
+  sections: activeFaceSections,
   dragState,
   cornerImages,
   shelfImages,
+  wallImages,
   onScaleChange: (info) => emit('scaleChange', info),
 });
 
-useCursorUpdater(canvasRef, scaleInfo, activeFacePillars, activeFaceShelves);
+useCursorUpdater(canvasRef, scaleInfo, activeFacePillars, activeFaceShelves, activeFaceSections);
 
 const validatePillarPosition = computed(() => createPillarPositionValidator(roomState.value));
-const validateShelfPosition = computed(() => createShelfPositionValidator());
+const validateShelfPosition = computed(() => createShelfPositionValidator(activeFacePillars.value));
 
 // 선반 종류 선택 모달 상태
 const shelfTypeModal = ref<{
   show: boolean;
-  startPillarId: string;
-  endPillarId: string;
+  sectionKey: number;
+  startPillarKey: number;
+  endPillarKey: number;
   x: number;
   y: number;
 } | null>(null);
@@ -273,18 +293,18 @@ const shelfTypeModal = ref<{
 // 코너장 확인 모달 상태
 const cornerPillarModal = ref<{
   show: boolean;
-  pillarId: string;
+  pillarKey: number;
 } | null>(null);
 
 // 기둥 스타일 선택 상태
-const selectedPillarStyle = ref<'rear-single' | 'center-single' | 'dual'>('rear-single');
+const selectedPillarStyle = ref<'RS' | 'CS' | 'DU'>('RS');
 const isPillarStyleMenuOpen = ref(false);
 
 // 기둥 스타일 이름 매핑
-const pillarStyleNames = {
-  'rear-single': '후면 싱글',
-  'center-single': '센터 싱글',
-  'dual': '듀얼 기둥',
+const pillarStyleNames: Record<'RS' | 'CS' | 'DU', string> = {
+  RS: '후면 싱글',
+  CS: '센터 싱글',
+  DU: '듀얼 기둥',
 };
 
 // 마우스 이벤트 핸들러
@@ -294,13 +314,10 @@ const pillarStyleNames = {
 const handleMouseDown = (e: MouseEvent) => {
   if (!scaleInfo.value) return;
 
-  // 선반 타입 선택 모달이 열려있으면 닫기
   if (shelfTypeModal.value) {
     shelfTypeModal.value = null;
     return;
   }
-
-  // 코너장 확인 모달이 열려있으면 닫기
   if (cornerPillarModal.value) {
     cornerPillarModal.value = null;
     return;
@@ -314,22 +331,19 @@ const handleMouseDown = (e: MouseEvent) => {
   const y = e.clientY - rect.top;
 
   const { redRect } = scaleInfo.value;
+  const pillars = activeFacePillars.value;
+  const sections = activeFaceSections.value;
 
-  // 1순위: 기둥 추가 버튼 클릭 체크
-  const normalPillars = activeFacePillars.value.filter((p) => p.type !== 'wall');
-  let buttonX: number;
-  if (normalPillars.length === 0) {
-    buttonX = mmToPxX(600, scaleInfo.value);
-  } else {
-    const rightmostPillar = normalPillars.reduce((rightmost, current) =>
-      current.xMm > rightmost.xMm ? current : rightmost
-    );
-    const buttonXMm = rightmostPillar.xMm + 600;
-    buttonX = mmToPxX(buttonXMm, scaleInfo.value);
-  }
+  const rightmostPillar = pillars.reduce<Pillar | null>(
+    (rightmost, current) => (!rightmost || current.x > rightmost.x ? current : rightmost),
+    null
+  );
+  const settings = store.settings.value;
+  const addButtonXMm = rightmostPillar ? rightmostPillar.x + settings.pillarButtonOffsetMm : settings.pillarButtonOffsetMm;
+  const buttonX = mmToPxX(addButtonXMm, scaleInfo.value);
   const buttonY = redRect.y + redRect.height * 0.5;
-  const pillarButtonWidth = 70;
-  const pillarButtonHeight = 30;
+  const pillarButtonWidth = settings.buttonSizes.pillarAdd.width;
+  const pillarButtonHeight = settings.buttonSizes.pillarAdd.height;
 
   if (
     x >= buttonX - pillarButtonWidth / 2 &&
@@ -337,62 +351,84 @@ const handleMouseDown = (e: MouseEvent) => {
     y >= buttonY - pillarButtonHeight / 2 &&
     y <= buttonY + pillarButtonHeight / 2
   ) {
-    // 칸 추가 (기둥 추가)
-    if (normalPillars.length === 0) {
-      const firstXMm = 0;
-      const secondXMm = 700;
+    const newPillars: Pillar[] = [...pillars];
+    let newSections: Section[] = [];
 
-      if (firstXMm < 0 || firstXMm > roomState.value.roomWidthMm || secondXMm < 0 || secondXMm > roomState.value.roomWidthMm) {
+    if (!rightmostPillar) {
+      const first = createPillar(0);
+      const second = createPillar(settings.defaultSectionWidthMm);
+
+      if (
+        first.x < 0 ||
+        first.x > roomState.value.roomWidthMm ||
+        second.x < 0 ||
+        second.x > roomState.value.roomWidthMm
+      ) {
         emit('showToast', '기둥은 정면 벽 내에만 생성할 수 있습니다.');
         return;
       }
 
-      const firstPillar: Pillar = {
-        id: `pillar-${Date.now()}`,
-        xMm: firstXMm,
-        type: 'normal',
-        pillarStyle: selectedPillarStyle.value,
-      };
-      const secondPillar: Pillar = {
-        id: `pillar-${Date.now() + 1}`,
-        xMm: secondXMm,
-        type: 'normal',
-        pillarStyle: selectedPillarStyle.value,
-      };
-      store.setActiveFacePillars([...activeFacePillars.value, firstPillar, secondPillar]);
+      newPillars.push(first, second);
+      newSections = [createSection(first, second)];
     } else {
-      const rightmostPillar = normalPillars.reduce((rightmost, current) =>
-        current.xMm > rightmost.xMm ? current : rightmost
-      );
-      const newXMm = rightmostPillar.xMm + 700;
-
-      if (newXMm < 0 || newXMm > roomState.value.roomWidthMm) {
+      const nextX = rightmostPillar.x + settings.defaultSectionWidthMm;
+      if (nextX < 0 || nextX > roomState.value.roomWidthMm) {
         emit('showToast', '기둥은 정면 벽 내에만 생성할 수 있습니다.');
         return;
       }
 
-      const newPillar: Pillar = {
-        id: `pillar-${Date.now()}`,
-        xMm: newXMm,
-        type: 'normal',
-        pillarStyle: selectedPillarStyle.value,
-      };
-      store.setActiveFacePillars([...activeFacePillars.value, newPillar]);
+      const newPillar = createPillar(nextX);
+      newPillars.push(newPillar);
+      newSections = [createSection(rightmostPillar, newPillar)];
     }
+
+    store.setActiveFacePillars(newPillars);
+    newSections.forEach((section) => store.addSection(section));
     return;
   }
 
-  // 1-2순위: 선반 추가 버튼들 클릭 체크
-  if (normalPillars.length >= 2) {
-    const shelfButtons = calculateShelfButtonPositions(activeFacePillars.value, activeFaceShelves.value, scaleInfo.value);
-    const shelfButtonRadius = 17.5;
+  if (sections.length > 0) {
+    const sectionDeleteButtons = calculateSectionDeleteButtonPositions(sections, pillars, scaleInfo.value);
+    for (const button of sectionDeleteButtons) {
+      const buttonWidth = settings.buttonSizes.sectionDelete.width;
+      const buttonHeight = settings.buttonSizes.sectionDelete.height;
+      if (
+        x >= button.x - buttonWidth / 2 &&
+        x <= button.x + buttonWidth / 2 &&
+        y >= button.y - buttonHeight / 2 &&
+        y <= button.y + buttonHeight / 2
+      ) {
+        const section = sections.find((s) => s.sectionKey === button.sectionKey);
+        if (!section) return;
+        
+        // 실제 activeFaceShelves에서 해당 섹션에 속한 선반 개수 확인
+        const shelvesInSection = activeFaceShelves.value.filter(
+          (shelf) => shelf.sectionKey === button.sectionKey
+        );
+        const shelvesCount = shelvesInSection.length;
+        
+        if (shelvesCount > 0) {
+          emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
+        } else {
+          store.removeSection(button.sectionKey);
+        }
+        return;
+      }
+    }
+  }
+
+  if (pillars.length >= 2 || sections.length > 0) {
+    const shelfButtons = calculateShelfButtonPositions(pillars, activeFaceShelves.value, scaleInfo.value, sections);
+    const settings = store.settings.value;
+    const shelfButtonRadius = settings.buttonSizes.shelfAdd.radius;
     for (const button of shelfButtons) {
-      const distanceToShelfButton = Math.sqrt(Math.pow(x - button.x, 2) + Math.pow(y - button.y, 2));
+      const distanceToShelfButton = Math.sqrt((x - button.x) ** 2 + (y - button.y) ** 2);
       if (distanceToShelfButton <= shelfButtonRadius) {
         shelfTypeModal.value = {
           show: true,
-          startPillarId: button.startPillarId,
-          endPillarId: button.endPillarId,
+          sectionKey: button.sectionKey,
+          startPillarKey: button.startPillarKey,
+          endPillarKey: button.endPillarKey,
           x: button.x,
           y: button.y,
         };
@@ -401,53 +437,50 @@ const handleMouseDown = (e: MouseEvent) => {
     }
   }
 
-  // 2순위: 선반 클릭 체크
   for (const shelf of activeFaceShelves.value) {
-    const startPillar = activeFacePillars.value.find((p) => p.id === shelf.startPillarId);
-    const endPillar = activeFacePillars.value.find((p) => p.id === shelf.endPillarId);
+    if (shelf.sectionKey == null) continue;
+    const section = sections.find((s) => s.sectionKey === shelf.sectionKey);
+    if (!section) continue;
+    const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
     if (!startPillar || !endPillar) continue;
 
-    const startX = mmToPxX(startPillar.xMm, scaleInfo.value);
-    const endX = mmToPxX(endPillar.xMm, scaleInfo.value);
-    const shelfY = mmToPxY(shelf.heightMm, scaleInfo.value);
+    const startX = mmToPxX(startPillar.x, scaleInfo.value);
+    const endX = mmToPxX(endPillar.x, scaleInfo.value);
+    const shelfY = mmToPxY(shelf.y, scaleInfo.value);
     const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
 
     if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
-      emit('objectSelect', 'shelf', shelf.id);
+      emit('objectSelect', 'shelf', shelf.selfKey);
       dragState.value = {
         type: 'shelf',
-        targetId: shelf.id,
+        targetKey: shelf.selfKey,
         startY: y,
-        originalHeightMm: shelf.heightMm,
+        originalHeightMm: shelf.y,
       };
       return;
     }
   }
 
-  // 4순위: 기둥 클릭 체크
   const pillarWidthPx = PILLAR_SHELF_CONSTRAINTS.PILLAR_WIDTH_PX;
-  for (const pillar of activeFacePillars.value) {
-    if (pillar.type === 'wall') continue;
-
-    const pillarX = mmToPxX(pillar.xMm, scaleInfo.value);
+  for (const pillar of pillars) {
+    const pillarX = mmToPxX(pillar.x, scaleInfo.value);
     if (
       x >= pillarX - pillarWidthPx / 2 - 5 &&
       x <= pillarX + pillarWidthPx / 2 + 5 &&
       y >= redRect.y &&
       y <= redRect.y + redRect.height
     ) {
-      emit('objectSelect', 'pillar', pillar.id);
       dragState.value = {
         type: 'pillar',
-        targetId: pillar.id,
+        targetKey: pillar.pillarKey,
         startX: x,
-        originalXMm: pillar.xMm,
+        originalX: pillar.x,
       };
       return;
     }
   }
 
-  // 아무것도 클릭하지 않았으면 선택 해제
   emit('objectSelect', null, null);
 };
 
@@ -465,11 +498,12 @@ const handleMouseMove = (e: MouseEvent) => {
   const y = e.clientY - rect.top;
 
   // 기둥 드래그
-  if (dragState.value.type === 'pillar' && dragState.value.targetId) {
+  if (dragState.value.type === 'pillar' && dragState.value.targetKey != null) {
     const newXMm = pxToMmX(x, scaleInfo.value);
-    const snappedXMm = snapToGrid(newXMm, 100);
+    const settings = store.settings.value;
+    const snappedXMm = snapToGrid(newXMm, settings.gridSizeMm);
 
-    const MAX_OUTSIDE_MM = 300;
+    const MAX_OUTSIDE_MM = settings.maxPillarOutsideMm;
     const minXMm = -MAX_OUTSIDE_MM;
     const maxXMm = roomState.value.roomWidthMm + MAX_OUTSIDE_MM;
 
@@ -477,27 +511,60 @@ const handleMouseMove = (e: MouseEvent) => {
 
     let constrainedXMm = clampedXMm;
     if (clampedXMm >= 0 && clampedXMm <= roomState.value.roomWidthMm) {
-      constrainedXMm = validatePillarPosition.value(dragState.value.targetId, clampedXMm, activeFacePillars.value);
+      constrainedXMm = validatePillarPosition.value(dragState.value.targetKey, clampedXMm, activeFacePillars.value);
     }
 
     store.setActiveFacePillars(
-      activeFacePillars.value.map((p) => (p.id === dragState.value.targetId ? { ...p, xMm: constrainedXMm } : p))
+      activeFacePillars.value.map((p) =>
+        p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p
+      )
     );
     return;
   }
 
   // 선반 높이 드래그
-  if (dragState.value.type === 'shelf' && dragState.value.targetId) {
-    const newHeightMm = pxToMmY(y, scaleInfo.value);
-    const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
-    const clampedHeightMm = Math.max(0, Math.min(maxHeightMm, newHeightMm));
-    const snappedHeightMm = snapToGrid(clampedHeightMm, 100);
-    const constrainedHeightMm = validateShelfPosition.value(dragState.value.targetId, snappedHeightMm, activeFaceShelves.value);
-    const finalHeightMm = snapToGrid(constrainedHeightMm, 100);
+  if (dragState.value.type === 'shelf' && dragState.value.targetKey != null) {
+    const draggedShelf = activeFaceShelves.value.find((s) => s.selfKey === dragState.value.targetKey);
+    if (draggedShelf) {
+      const newHeightMm = pxToMmY(y, scaleInfo.value);
+      const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
+      const clampedHeightMm = Math.max(0, Math.min(maxHeightMm, newHeightMm));
+      
+      // validateShelfPosition에 originalHeightMm과 maxHeightMm을 전달하여 드래그 방향 감지 및 충돌 방지
+      const finalHeightMm = validateShelfPosition.value(
+        dragState.value.targetKey, 
+        clampedHeightMm, 
+        activeFaceShelves.value,
+        dragState.value.originalHeightMm,
+        maxHeightMm
+      );
 
-    store.setActiveFaceShelves(
-      activeFaceShelves.value.map((s) => (s.id === dragState.value.targetId ? { ...s, heightMm: finalHeightMm } : s))
-    );
+      // 섹션 정보 유지하면서 선반 업데이트
+      const updatedShelves = activeFaceShelves.value.map((s) => 
+        s.selfKey === dragState.value.targetKey 
+          ? { ...s, y: finalHeightMm } 
+          : s
+      );
+      store.setActiveFaceShelves(updatedShelves);
+      
+      // 섹션의 shelves 배열도 업데이트 (섹션 정보 유지)
+      if (draggedShelf.sectionKey != null) {
+        const updatedSections = activeFaceSections.value.map(section => {
+          if (section.sectionKey === draggedShelf.sectionKey) {
+            return {
+              ...section,
+              shelves: section.shelves.map(s => 
+                s.selfKey === dragState.value.targetKey 
+                  ? { ...s, y: finalHeightMm }
+                  : s
+              )
+            };
+          }
+          return section;
+        });
+        store.setActiveFaceSections(updatedSections);
+      }
+    }
     return;
   }
 };
@@ -506,53 +573,79 @@ const handleMouseMove = (e: MouseEvent) => {
  * 드래그 종료 시 위치를 스냅하고 코너장 모달을 제어합니다.
  */
 const handleMouseUp = () => {
-  // 기둥/선반 드래그 종료
-  if (dragState.value.type === 'pillar' && dragState.value.targetId && scaleInfo.value) {
-    const draggedPillar = activeFacePillars.value.find((p) => p.id === dragState.value.targetId);
+  if (dragState.value.type === 'pillar' && dragState.value.targetKey != null && scaleInfo.value) {
+    const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === dragState.value.targetKey);
     if (draggedPillar) {
-      const isOutsideRedRect = draggedPillar.xMm < 0 || draggedPillar.xMm > roomState.value.roomWidthMm;
+      const isOutsideRedRect = draggedPillar.x < 0 || draggedPillar.x > roomState.value.roomWidthMm;
 
-      if (isOutsideRedRect && !draggedPillar.cornerPillar) {
+      if (isOutsideRedRect && !draggedPillar.cornerYn) {
         cornerPillarModal.value = {
           show: true,
-          pillarId: draggedPillar.id,
+          pillarKey: draggedPillar.pillarKey,
         };
       } else {
-        const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.xMm));
-        const snappedXMm = snapToGrid(clampedXMm, 100);
-        const constrainedXMm = validatePillarPosition.value(dragState.value.targetId, snappedXMm, activeFacePillars.value);
+        const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
+        const settings = store.settings.value;
+        const snappedXMm = snapToGrid(clampedXMm, settings.gridSizeMm);
+        const constrainedXMm = validatePillarPosition.value(dragState.value.targetKey, snappedXMm, activeFacePillars.value);
 
         store.setActiveFacePillars(
           activeFacePillars.value
-            .map((p) => (p.id === dragState.value.targetId ? { ...p, xMm: constrainedXMm } : p))
-            .sort((a, b) => a.xMm - b.xMm)
+            .map((p) => (p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p))
+            .sort((a, b) => a.x - b.x)
         );
       }
     }
   }
 
-  if (dragState.value.type === 'shelf' && dragState.value.targetId && scaleInfo.value) {
-    const draggedShelf = activeFaceShelves.value.find((s) => s.id === dragState.value.targetId);
+  if (dragState.value.type === 'shelf' && dragState.value.targetKey != null && scaleInfo.value) {
+    const draggedShelf = activeFaceShelves.value.find((s) => s.selfKey === dragState.value.targetKey);
     if (draggedShelf) {
-      const clampedHeightMm = Math.max(0, Math.min(scaleInfo.value.redRect.height / scaleInfo.value.scaleY, draggedShelf.heightMm));
-      const snappedHeightMm = snapToGrid(clampedHeightMm, 100);
-      const constrainedHeightMm = validateShelfPosition.value(dragState.value.targetId, snappedHeightMm, activeFaceShelves.value);
-      const finalHeightMm = snapToGrid(constrainedHeightMm, 100);
-
-      store.setActiveFaceShelves(
-        activeFaceShelves.value.map((s) => (s.id === dragState.value.targetId ? { ...s, heightMm: finalHeightMm } : s))
+      const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
+      const clampedHeightMm = Math.max(0, Math.min(maxHeightMm, draggedShelf.y));
+      
+      const finalHeightMm = validateShelfPosition.value(
+        dragState.value.targetKey, 
+        clampedHeightMm, 
+        activeFaceShelves.value,
+        dragState.value.originalHeightMm,
+        maxHeightMm
       );
+
+      const updatedShelves = activeFaceShelves.value.map((s) => 
+        s.selfKey === dragState.value.targetKey 
+          ? { ...s, y: finalHeightMm } 
+          : s
+      );
+      store.setActiveFaceShelves(updatedShelves);
+      
+      if (draggedShelf.sectionKey != null) {
+        const updatedSections = activeFaceSections.value.map(section => {
+          if (section.sectionKey === draggedShelf.sectionKey) {
+            return {
+              ...section,
+              shelves: section.shelves.map(s => 
+                s.selfKey === dragState.value.targetKey 
+                  ? { ...s, y: finalHeightMm }
+                  : s
+              )
+            };
+          }
+          return section;
+        });
+        store.setActiveFaceSections(updatedSections);
+      }
     }
   }
 
-  dragState.value = { type: null, targetId: null };
+  dragState.value = { type: null, targetKey: null };
 };
 
 /**
  * 캔버스를 이탈하면 모든 드래그 상태를 초기화합니다.
  */
 const handleMouseLeave = () => {
-  dragState.value = { type: null, targetId: null };
+  dragState.value = { type: null, targetKey: null };
 };
 
 // 선반 타입 선택 핸들러
@@ -562,22 +655,26 @@ const handleMouseLeave = () => {
 const handleShelfTypeSelect = (shelfType: 'normal' | 'hanger' | 'drawer') => {
   if (!shelfTypeModal.value || !scaleInfo.value) return;
 
-  const samePairShelves = activeFaceShelves.value.filter(
-    (shelf) =>
-      shelf.startPillarId === shelfTypeModal.value!.startPillarId &&
-      shelf.endPillarId === shelfTypeModal.value!.endPillarId
-  );
+  const sectionKey = shelfTypeModal.value.sectionKey;
+  const section = activeFaceSections.value.find((s) => s.sectionKey === sectionKey);
+  if (!section) {
+    emit('showToast', '섹션 정보를 찾을 수 없습니다.');
+    shelfTypeModal.value = null;
+    return;
+  }
 
+  let samePairShelves: Shelf[] = section.shelves;
   const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
 
+  const settings = store.settings.value;
   let newHeightMm: number;
   if (samePairShelves.length === 0) {
-    newHeightMm = maxHeightMm - 300;
+    newHeightMm = maxHeightMm - settings.shelfCreateDefaultOffsetMm;
   } else {
     const topmostShelf = samePairShelves.reduce((topmost, current) =>
-      current.heightMm < topmost.heightMm ? current : topmost
+      current.y < topmost.y ? current : topmost
     );
-    newHeightMm = topmostShelf.heightMm - 400;
+    newHeightMm = topmostShelf.y - settings.shelfButtonDefaultOffsetMm;
   }
 
   if (newHeightMm < 0 || newHeightMm > maxHeightMm) {
@@ -586,19 +683,40 @@ const handleShelfTypeSelect = (shelfType: 'normal' | 'hanger' | 'drawer') => {
     return;
   }
 
-  const startPillar = activeFacePillars.value.find((p) => p.id === shelfTypeModal.value!.startPillarId);
-  const endPillar = activeFacePillars.value.find((p) => p.id === shelfTypeModal.value!.endPillarId);
-  const isCornerShelf = startPillar?.cornerPillar || endPillar?.cornerPillar || false;
+  const startPillar = activeFacePillars.value.find((p) => p.pillarKey === section.startPillarKey);
+  const endPillar = activeFacePillars.value.find((p) => p.pillarKey === section.endPillarKey);
+  if (!startPillar || !endPillar) {
+    emit('showToast', '기둥 정보를 찾을 수 없습니다.');
+    shelfTypeModal.value = null;
+    return;
+  }
+  const shelfLength = Math.abs(endPillar.x - startPillar.x);
 
   const newShelf: Shelf = {
-    id: `shelf-${Date.now()}`,
-    startPillarId: shelfTypeModal.value.startPillarId,
-    endPillarId: shelfTypeModal.value.endPillarId,
-    heightMm: newHeightMm,
+    selfKey: createTempKey(),
+    prodKey: 0,
+    sectionKey,
     type: shelfType,
-    cornerShelf: isCornerShelf,
+    x: shelfLength,
+    y: newHeightMm,
+    z: 0,
+    t_limit: 0,
+    b_limit: 0,
   };
+
   store.setActiveFaceShelves([...activeFaceShelves.value, newShelf]);
+
+  const updatedSections = activeFaceSections.value.map((s) => {
+    if (s.sectionKey === sectionKey) {
+      return {
+        ...s,
+        shelves: [...s.shelves, newShelf],
+      };
+    }
+    return s;
+  });
+  store.setActiveFaceSections(updatedSections);
+  
   shelfTypeModal.value = null;
 };
 
@@ -609,29 +727,34 @@ const handleShelfTypeSelect = (shelfType: 'normal' | 'hanger' | 'drawer') => {
 const handleCornerPillarConfirm = (confirmed: boolean) => {
   if (!cornerPillarModal.value || !scaleInfo.value) return;
 
-  const draggedPillar = activeFacePillars.value.find((p) => p.id === cornerPillarModal.value!.pillarId);
+  const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === cornerPillarModal.value!.pillarKey);
   if (!draggedPillar) {
     cornerPillarModal.value = null;
     return;
   }
 
-  const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.xMm));
-  const snappedXMm = snapToGrid(clampedXMm, 100);
-  const constrainedXMm = validatePillarPosition.value(cornerPillarModal.value.pillarId, snappedXMm, activeFacePillars.value);
+  const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
+  const settings = store.settings.value;
+  const snappedXMm = snapToGrid(clampedXMm, settings.gridSizeMm);
+  const constrainedXMm = validatePillarPosition.value(
+    cornerPillarModal.value.pillarKey,
+    snappedXMm,
+    activeFacePillars.value
+  );
 
   if (confirmed) {
     store.setActiveFacePillars(
       activeFacePillars.value
         .map((p) =>
-          p.id === cornerPillarModal.value!.pillarId ? { ...p, cornerPillar: true, xMm: constrainedXMm } : p
+          p.pillarKey === cornerPillarModal.value!.pillarKey ? { ...p, cornerYn: true, x: constrainedXMm } : p
         )
-        .sort((a, b) => a.xMm - b.xMm)
+        .sort((a, b) => a.x - b.x)
     );
   } else {
     store.setActiveFacePillars(
       activeFacePillars.value
-        .map((p) => (p.id === cornerPillarModal.value!.pillarId ? { ...p, xMm: constrainedXMm } : p))
-        .sort((a, b) => a.xMm - b.xMm)
+        .map((p) => (p.pillarKey === cornerPillarModal.value!.pillarKey ? { ...p, x: constrainedXMm } : p))
+        .sort((a, b) => a.x - b.x)
     );
   }
 
@@ -642,7 +765,7 @@ const handleCornerPillarConfirm = (confirmed: boolean) => {
 /**
  * 드롭다운에서 고른 스타일을 현재 모든 일반 기둥에 일괄 적용합니다.
  */
-const handlePillarStyleChange = (style: 'rear-single' | 'center-single' | 'dual') => {
+const handlePillarStyleChange = (style: 'RS' | 'CS' | 'DU') => {
   selectedPillarStyle.value = style;
   isPillarStyleMenuOpen.value = false;
   store.setPillarStyleAllFaces(style);
@@ -697,7 +820,7 @@ const getPillarStyleDropdownPosition = () => {
   };
 };
 
-const getPillarStyleMenuItemStyle = (style: 'rear-single' | 'center-single' | 'dual') => ({
+const getPillarStyleMenuItemStyle = (style: 'RS' | 'CS' | 'DU') => ({
   padding: '8px 12px',
   cursor: 'pointer',
   backgroundColor: selectedPillarStyle.value === style ? '#E3F2FD' : '#fff',
@@ -915,19 +1038,13 @@ const handlePillarStyleButtonLeave = (e: MouseEvent) => {
   (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fff';
 };
 
-const handlePillarStyleMenuItemEnter = (
-  style: 'rear-single' | 'center-single' | 'dual',
-  e: MouseEvent
-) => {
+const handlePillarStyleMenuItemEnter = (style: 'RS' | 'CS' | 'DU', e: MouseEvent) => {
   if (selectedPillarStyle.value !== style) {
     (e.currentTarget as HTMLElement).style.backgroundColor = '#f5f5f5';
   }
 };
 
-const handlePillarStyleMenuItemLeave = (
-  style: 'rear-single' | 'center-single' | 'dual',
-  e: MouseEvent
-) => {
+const handlePillarStyleMenuItemLeave = (style: 'RS' | 'CS' | 'DU', e: MouseEvent) => {
   if (selectedPillarStyle.value !== style) {
     (e.currentTarget as HTMLElement).style.backgroundColor = '#fff';
   }
