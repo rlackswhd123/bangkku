@@ -32,7 +32,8 @@ export function calculateScale(
   canvasHeight: number,
   roomWidthMm: number,
   roomHeightMm: number,
-  visualWidthConstraints?: { min: number; max: number }
+  visualWidthConstraints?: { min: number; max: number },
+  wallVerticalPaddingPx: number = 0,
 ): ScaleInfo {
   // 화면 표현용 폭 제한 (실제 입력 값은 제한 없음)
   const MIN_VISUAL_WIDTH_MM = visualWidthConstraints?.min ?? 2000;
@@ -84,6 +85,67 @@ export function calculateScale(
   const redX = blueCenterX - constrainedRedWidth / 2;
   const redY = blueCenterY - redHeightPx / 2;
   
+  // 왼쪽/오른쪽 파란 벽 사다리꼴 좌표 계산
+  // 일점 투시도 기준: 소실점을 화면 중앙으로 설정
+  const vanishingPointX = blueCenterX;
+  const vanishingPointY = blueCenterY;
+  
+  // 왼쪽 파란 벽 사다리꼴 (blueRect 왼쪽 여백 ~ redRect 왼쪽 경계)
+  const leftWallLeft = blueX;
+  const leftWallRight = redX;
+  const SNAPSHOT_OFFSET_Y = 2; // 스냅샷 사다리꼴 전체를 위로 올리는 오프셋(px)
+  const leftWallTop = redY - wallVerticalPaddingPx - SNAPSHOT_OFFSET_Y;
+  const leftWallBottom = redY + redHeightPx + wallVerticalPaddingPx - SNAPSHOT_OFFSET_Y;
+  
+  // 소실점으로 수렴하는 각도 계산 (간단한 선형 근사)
+  const perspectiveFactor = 0.27; // 투시 강도 (0~1)
+  
+  // 왼쪽 벽: 오른쪽 엣지(코너 쪽)를 소실점으로 당겨서 안쪽으로 좁아지게
+  const leftWallQuad = {
+    topLeft: {
+      x: leftWallLeft,
+      y: leftWallTop,
+    },
+    topRight: {
+      x: leftWallRight,
+      y: leftWallTop + (vanishingPointY - leftWallTop) * perspectiveFactor,
+    },
+    bottomRight: {
+      x: leftWallRight,
+      y: leftWallBottom - (leftWallBottom - vanishingPointY) * perspectiveFactor,
+    },
+    bottomLeft: {
+      x: leftWallLeft,
+      y: leftWallBottom,
+    },
+  };
+  
+  // 오른쪽 파란 벽 사다리꼴 (redRect 오른쪽 경계 ~ blueRect 오른쪽 여백)
+  const rightWallLeft = redX + constrainedRedWidth;
+  const rightWallRight = blueX + blueWidth;
+  const rightWallTop = redY - wallVerticalPaddingPx - SNAPSHOT_OFFSET_Y;
+  const rightWallBottom = redY + redHeightPx + wallVerticalPaddingPx - SNAPSHOT_OFFSET_Y;
+  
+  // 오른쪽 벽: 왼쪽 엣지(코너 쪽)를 소실점으로 당겨서 안쪽으로 좁아지게
+  const rightWallQuad = {
+    topLeft: {
+      x: rightWallLeft,
+      y: rightWallTop + (vanishingPointY - rightWallTop) * perspectiveFactor,
+    },
+    topRight: {
+      x: rightWallRight,
+      y: rightWallTop,
+    },
+    bottomRight: {
+      x: rightWallRight,
+      y: rightWallBottom,
+    },
+    bottomLeft: {
+      x: rightWallLeft,
+      y: rightWallBottom - (rightWallBottom - vanishingPointY) * perspectiveFactor,
+    },
+  };
+  
   return {
     scaleX, // 시각적 폭 제한이 반영된 scaleX
     scaleY,
@@ -99,6 +161,9 @@ export function calculateScale(
       width: constrainedRedWidth,
       height: redHeightPx,
     },
+    wallVerticalPaddingPx,
+    leftWallQuad,
+    rightWallQuad,
   };
 }
 

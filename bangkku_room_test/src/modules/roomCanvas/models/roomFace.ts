@@ -1,6 +1,19 @@
 // roomFace.ts: 면별 상태 인터페이스 정의
-import { Pillar, Shelf, Section } from '../../../types';
+import { Pillar, Section } from '../../../types';
 import { FaceId } from './roomShape';
+
+/**
+ * 투영된 스냅샷 정보
+ */
+export interface ProjectedSnapshot {
+  imageDataUrl: string;           // Blob URL 또는 base64
+  imageElement?: HTMLImageElement; // 로드된 이미지 객체 (캐싱용)
+  sourceFaceId: FaceId;            // 어느 면에서 캡처했는지
+  sourceFaceX: number;             // 캡처 시점의 face_x (mm)
+  sourceFaceY: number;             // 캡처 시점의 face_y (mm)
+  timestamp: number;               // 캡처 시점
+  contentHash?: string;            // 면 콘텐츠 해시 (변경 감지용)
+}
 
 /**
  * 각 면의 상태
@@ -15,6 +28,7 @@ export interface RoomFaceState {
   pillars: Pillar[];      // 이 면에 배치된 기둥 배열
   sections: Section[];    // 이 면의 섹션(칸) 배열 (선반은 sections[].shelves에만 저장)
   hasShelf: boolean;      // 시스템 선반 설치 여부
+  projectedSnapshot?: ProjectedSnapshot | null; // 투영된 스냅샷 (측면에 표시될 정면 이미지)
 }
 
 const DEFAULT_FACE_METRICS = {
@@ -51,5 +65,26 @@ export function createEmptyFaceState(
 export function hasFaceShelf(face: RoomFaceState): boolean {
   const hasShelves = face.sections.some(section => section.shelves.length > 0);
   return face.hasShelf || face.pillars.length > 0 || hasShelves;
+}
+
+/**
+ * 면 콘텐츠의 해시 생성 (변경 감지용)
+ * 기둥, 섹션, 선반의 위치와 스타일을 기반으로 간단한 해시 생성
+ */
+export function calculateFaceContentHash(face: RoomFaceState): string {
+  const pillarData = face.pillars.map(p => 
+    `${p.pillarKey}:${p.x}:${p.pillarStyle || 'RS'}`
+  ).join('|');
+  
+  const sectionData = face.sections.map(s => {
+    const shelfData = s.shelves.map(sh => 
+      `${sh.shelfKey}:${sh.y}:${sh.type}`
+    ).join(',');
+    return `${s.sectionKey}:${s.x}:${s.startPillarKey}:${s.endPillarKey}:[${shelfData}]`;
+  }).join('|');
+  
+  const dimensionData = `${face.face_x}x${face.face_y}`;
+  
+  return `${dimensionData}::${pillarData}::${sectionData}`;
 }
 

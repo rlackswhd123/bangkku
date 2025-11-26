@@ -27,8 +27,8 @@
         :selected-key="selectedKey"
         :pillar="selectedPillar"
         :shelf="selectedShelf"
-        :pillars="store.activeFacePillars.value"
-        :sections="store.activeFaceSections.value"
+        :pillars="uiPillars"
+        :sections="uiSections"
         @close="handleClose"
         @delete="handleDelete"
       />
@@ -145,11 +145,11 @@ import ShapeSelector from './components/ShapeSelector.vue';
 import GlobalSettingsModal from './components/GlobalSettingsModal.vue';
 import ObjectInfoPanel from './components/ObjectInfoPanel.vue';
 import Toast from './components/Toast.vue';
-import { ScaleInfo } from './types';
+import type { ScaleInfo, Pillar, Section } from './types';
 import { useRoomStore } from './modules/roomCanvas/store';
 import { RoomShape } from './modules/roomCanvas/models/roomShape';
 import { deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
-import { serializeRoomState, deserializeRoomState } from './modules/roomCanvas/models/roomState';
+import { serializeRoomState, deserializeRoomState, type MultiRoomState } from './modules/roomCanvas/models/roomState';
 import { downloadRoomStateFile } from './utils/export';
 import { importJsonFile } from './utils/import';
 
@@ -175,6 +175,10 @@ const shelfDeleteModal = ref<{
   show: boolean;
   shelfKey: number;
 } | null>(null);
+
+// ObjectInfoPanel에 전달할 가변 배열 뷰 (스토어는 readonly이므로 UI 용도로만 타입 캐스팅)
+const uiPillars = computed<Pillar[]>(() => store.activeFacePillars.value as unknown as Pillar[]);
+const uiSections = computed<Section[]>(() => store.activeFaceSections.value as unknown as Section[]);
 
 const selectedPillar = computed(() => {
   return selectedType.value === 'pillar' && selectedKey.value != null
@@ -261,7 +265,7 @@ const handleGlobalSettingsConfirm = () => {
 /** 방 상태를 JSON 파일로 저장합니다. */
 const handleSave = () => {
   try {
-    const currentState = store.state.value;
+    const currentState = store.state.value as unknown as MultiRoomState;
     const jsonString = serializeRoomState(currentState);
     const roomName = currentState.roomName || '내 방';
     

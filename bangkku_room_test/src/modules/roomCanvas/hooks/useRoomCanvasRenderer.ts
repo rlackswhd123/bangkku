@@ -3,13 +3,15 @@ import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
 import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
+import { FaceId } from '../models/roomShape';
 import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
-import { drawSkeletonRoom } from '../canvas/drawers/skeleton';
+// import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions, drawSectionDeleteButtons, calculateSectionDeleteButtonPositions, drawItemAddButtons, calculateItemAddButtonPositions } from '../canvas/drawers/buttons';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
 import { drawFrontWall, drawLeftWall, drawRightWall } from '../canvas/drawers/walls';
+import { drawProjectedSnapshot } from '../canvas/drawers/projectedSnapshot';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 
 interface UseRoomCanvasRendererParams {
@@ -24,6 +26,14 @@ interface UseRoomCanvasRendererParams {
   shelfImages: Ref<ShelfImages>;
   wallImages: Ref<WallImages>;
   onScaleChange: (scaleInfo: ScaleInfo) => void;
+}
+
+/**
+ * 렌더링 옵션
+ */
+export interface RenderOptions {
+  excludeButtons?: boolean;  // UI 버튼 제외 여부
+  excludeSpacings?: boolean; // 간격 표시 제외 여부
 }
 
 export function useRoomCanvasRenderer({
@@ -48,7 +58,15 @@ export function useRoomCanvasRenderer({
     const currentRoom = unref(room);
     const store = useRoomStore();
     const visualWidthConstraints = store.settings.value.visualWidthConstraints;
-    const newScaleInfo = calculateScale(canvas.width, canvas.height, currentRoom.roomWidthMm, currentRoom.roomHeightMm, visualWidthConstraints);
+    const wallVerticalPaddingPx = store.settings.value.wallVerticalPaddingPx;
+    const newScaleInfo = calculateScale(
+      canvas.width,
+      canvas.height,
+      currentRoom.roomWidthMm,
+      currentRoom.roomHeightMm,
+      visualWidthConstraints,
+      wallVerticalPaddingPx,
+    );
     scaleInfo.value = newScaleInfo;
     onScaleChange(newScaleInfo);
     return newScaleInfo;
@@ -57,7 +75,9 @@ export function useRoomCanvasRenderer({
   /**
    * 방/기둥/선반/보조요소를 순서대로 그려주는 메인 렌더 루프입니다.
    */
-  const render = () => {
+  const render = (options: RenderOptions = {}) => {
+    const { excludeButtons = false, excludeSpacings = false } = options;
+    
     const canvas = canvasRef.value;
     const container = containerRef.value;
     if (!canvas || !container) return;
@@ -91,23 +111,56 @@ export function useRoomCanvasRenderer({
     drawLeftWall(ctx, currentScaleInfo, wallImages.value);
     drawRightWall(ctx, currentScaleInfo, wallImages.value);
 
-    drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
-
-    if (currentPillars.length >= 2 || currentSections.length > 0) {
-      const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
-      drawAddShelfButtons(ctx, shelfButtons);
+    // 4. 투영된 스냅샷 이미지 (파란 벽 위에 그리기)
+    const store = useRoomStore();
+    const currentActiveFaceId = store.activeFaceId.value;
+    const availableFaces = store.availableFaces.value;
+    const currentIndex = availableFaces.indexOf(currentActiveFaceId);
+    
+    if (currentIndex !== -1) {
+      // 왼쪽 파란 벽: 오른쪽 인접 면 (다음 면)의 스냅샷
+      const rightAdjacentFaceId = availableFaces[(currentIndex + 1) % availableFaces.length] as FaceId;
+      const rightAdjacentFace = store.getFaceState(rightAdjacentFaceId);
+      if (rightAdjacentFace.projectedSnapshot) {
+        drawProjectedSnapshot(
+          ctx,
+          rightAdjacentFace.projectedSnapshot,
+          currentScaleInfo.leftWallQuad
+        );
+      }
+      
+      // 오른쪽 파란 벽: 왼쪽 인접 면 (이전 면)의 스냅샷
+      const leftAdjacentFaceId = availableFaces[(currentIndex - 1 + availableFaces.length) % availableFaces.length] as FaceId;
+      const leftAdjacentFace = store.getFaceState(leftAdjacentFaceId);
+      if (leftAdjacentFace.projectedSnapshot) {
+        drawProjectedSnapshot(
+          ctx,
+          leftAdjacentFace.projectedSnapshot,
+          currentScaleInfo.rightWallQuad
+        );
+      }
     }
 
-    // 섹션 삭제 버튼 그리기
-    if (currentSections.length > 0) {
-      const sectionDeleteButtons = calculateSectionDeleteButtonPositions(currentSections, currentPillars, currentScaleInfo);
-      drawSectionDeleteButtons(ctx, sectionDeleteButtons);
-    }
+    // 5. UI 버튼들 (스냅샷 캡처 시 제외)
+    if (!excludeButtons) {
+      drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
 
-    // 소품 추가 버튼 그리기 (각 선반 위에)
-    if (currentShelves.length > 0 && currentSections.length > 0) {
-      const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
-      drawItemAddButtons(ctx, itemAddButtons);
+      if (currentPillars.length >= 2 || currentSections.length > 0) {
+        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
+        drawAddShelfButtons(ctx, shelfButtons);
+      }
+
+      // 섹션 삭제 버튼 그리기
+      if (currentSections.length > 0) {
+        const sectionDeleteButtons = calculateSectionDeleteButtonPositions(currentSections, currentPillars, currentScaleInfo);
+        drawSectionDeleteButtons(ctx, sectionDeleteButtons);
+      }
+
+      // 소품 추가 버튼 그리기 (각 선반 위에)
+      if (currentShelves.length > 0 && currentSections.length > 0) {
+        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
+        drawItemAddButtons(ctx, itemAddButtons);
+      }
     }
 
     currentPillars
@@ -164,12 +217,15 @@ export function useRoomCanvasRenderer({
       }
     }
 
-    if (currentPillars.length >= 2) {
-      drawPillarSpacings(ctx, currentPillars, currentScaleInfo);
-    }
+    // 간격 표시 (스냅샷 캡처 시 제외 가능)
+    if (!excludeSpacings) {
+      if (currentPillars.length >= 2) {
+        drawPillarSpacings(ctx, currentPillars, currentScaleInfo);
+      }
 
-    if (currentShelves.length > 0) {
-      drawShelfSpacings(ctx, currentShelves, currentPillars, currentSections, currentScaleInfo);
+      if (currentShelves.length > 0) {
+        drawShelfSpacings(ctx, currentShelves, currentPillars, currentSections, currentScaleInfo);
+      }
     }
   };
 
@@ -209,7 +265,10 @@ export function useRoomCanvasRenderer({
     }
   });
 
-  return scaleInfo;
+  return {
+    scaleInfo,
+    render, // render 함수를 외부에서 호출할 수 있도록 export
+  };
 }
 
 /**

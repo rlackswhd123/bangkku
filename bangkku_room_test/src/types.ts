@@ -14,12 +14,29 @@ export interface WallRect {
   height: number; // 높이 (px)
 }
 
+// 2D 좌표
+export interface Point2D {
+  x: number;
+  y: number;
+}
+
+// 사다리꼴 (4개 꼭짓점)
+export interface Quadrilateral {
+  topLeft: Point2D;     // 왼쪽 위
+  topRight: Point2D;    // 오른쪽 위
+  bottomRight: Point2D; // 오른쪽 아래
+  bottomLeft: Point2D;  // 왼쪽 아래
+}
+
 // 스케일 정보
 export interface ScaleInfo {
   scaleX: number;          // 폭용 mm → px 변환 비율 (roomWidthMm 기준)
   scaleY: number;          // 높이용 mm → px 변환 비율 (roomHeightMm 기준, 고정)
   blueRect: WallRect;      // 파란 사각형 (외곽 프레임, 고정)
   redRect: WallRect;       // 빨간 사각형 (정면 벽, 변동)
+  wallVerticalPaddingPx?: number; // 벽 이미지 상하 패딩(px) - 정면/측면 일관 스케일링용
+  leftWallQuad: Quadrilateral;  // 왼쪽 파란 벽 사다리꼴 영역
+  rightWallQuad: Quadrilateral; // 오른쪽 파란 벽 사다리꼴 영역
 }
 
 // 기둥 타입 (PRD 기준)

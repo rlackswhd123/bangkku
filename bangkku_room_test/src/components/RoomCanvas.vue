@@ -59,6 +59,25 @@
         </Teleport>
       </div>
     </div>
+
+    <!-- 화살표 버튼 (면 전환용) -->
+    <div v-if="scaleInfo" :style="arrowButtonsContainerStyle">
+      <button
+        @click="handleFaceRotate('left')"
+        :style="arrowButtonStyle()"
+        title="이전 면으로 이동"
+      >
+        ←
+      </button>
+      <button
+        @click="handleFaceRotate('right')"
+        :style="arrowButtonStyle()"
+        title="다음 면으로 이동"
+      >
+        →
+      </button>
+    </div>
+
     <!-- 상품 구매 모달 -->
     <Teleport to="body">
       <div v-if="productPurchaseModal && productPurchaseModal.show">
@@ -270,6 +289,7 @@ import { useRoomCanvasRenderer, useCursorUpdater } from '../modules/roomCanvas/h
 import { calculateShelfButtonPositions, calculateSectionDeleteButtonPositions, calculateItemAddButtonPositions } from '../modules/roomCanvas/canvas/drawers/buttons';
 import { createPillarPositionValidator, createShelfPositionValidator } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
+import { FaceId } from '../modules/roomCanvas/models/roomShape';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
@@ -325,7 +345,7 @@ const roomWidthDisplay = computed(() => {
   return `${widthM} M`;
 });
 
-const scaleInfo = useRoomCanvasRenderer({
+const { scaleInfo, render: renderCanvas } = useRoomCanvasRenderer({
   canvasRef,
   containerRef,
   room: roomState,
@@ -857,6 +877,87 @@ const handlePillarStyleChange = (style: 'RS' | 'CS' | 'DU') => {
   store.setPillarStyleAllFaces(style);
 };
 
+/**
+ * 화살표 버튼 클릭 핸들러 - 면 전환
+ */
+const handleFaceRotate = async (direction: 'left' | 'right') => {
+  try {
+    const currentFaceId = store.activeFaceId.value;
+    const availableFaces = store.availableFaces.value;
+    const currentIndex = availableFaces.indexOf(currentFaceId);
+
+    let nextFaceId: FaceId;
+    if (direction === 'left') {
+      // 왼쪽 화살표: 다음 면으로 (왼쪽 벽이 정면으로)
+      const nextIndex = currentIndex < availableFaces.length - 1 ? currentIndex + 1 : 0;
+      nextFaceId = availableFaces[nextIndex] as FaceId;
+    } else {
+      // 오른쪽 화살표: 이전 면으로 (오른쪽 벽이 정면으로)
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : availableFaces.length - 1;
+      nextFaceId = availableFaces[prevIndex] as FaceId;
+    }
+
+    // 면 전환 시 현재 면을 스냅샷 캡처 (변경된 경우에만)
+    let snapshotData = undefined;
+    if (canvasRef.value && scaleInfo.value) {
+      try {
+        const currentFace = store.getFaceState(currentFaceId);
+        
+        // 빈 면인지 확인 (기둥, 섹션, 선반이 모두 없으면 빈 면)
+        const hasFurniture = currentFace.pillars.length > 0 || 
+                            currentFace.sections.length > 0;
+        
+        // 빈 면은 스냅샷 캡처하지 않음
+        if (!hasFurniture) {
+          console.log(`면 ${currentFaceId} 스냅샷 생략 (빈 면)`);
+        } else {
+          const { calculateFaceContentHash } = await import('../modules/roomCanvas/models/roomFace');
+          
+          // 현재 면의 콘텐츠 해시 계산
+          const currentHash = calculateFaceContentHash(currentFace);
+          const previousHash = currentFace.projectedSnapshot?.contentHash;
+          
+          // 변경된 경우에만 캡처 (이전 해시와 다르거나, 처음 캡처하는 경우)
+          if (!previousHash || currentHash !== previousHash) {
+            const { captureFaceSnapshot } = await import('../utils/snapshot');
+            
+            const snapshot = await captureFaceSnapshot(
+              canvasRef.value,
+              renderCanvas,
+              scaleInfo.value.redRect,
+              currentFace.face_x,
+              currentFace.face_y
+            );
+            
+            snapshotData = {
+              imageDataUrl: snapshot.imageDataUrl,
+              imageElement: snapshot.imageElement,
+              sourceFaceX: snapshot.sourceFaceX,
+              sourceFaceY: snapshot.sourceFaceY,
+              contentHash: currentHash, // 해시 포함
+            };
+            
+            console.log(`면 ${currentFaceId} 스냅샷 캡처 완료 (변경 감지)`);
+          } else {
+            console.log(`면 ${currentFaceId} 스냅샷 재사용 (변경 없음)`);
+          }
+        }
+      } catch (error) {
+        console.error('스냅샷 캡처 실패:', error);
+      }
+    }
+
+    // 면 전환 (스냅샷 데이터와 함께)
+    await store.setActiveFaceId(nextFaceId, {
+      captureSnapshot: snapshotData !== undefined, // 변경된 경우에만 true
+      snapshotData,
+    });
+    
+  } catch (error) {
+    console.error('면 전환 중 오류:', error);
+  }
+};
+
 // 스타일 정의
 /**
  * 기둥 스타일 드롭다운이 캔버스 상단에 정확히 붙도록 절대 좌표를 계산합니다.
@@ -895,6 +996,46 @@ const roomSizeDisplayStyle = {
   backgroundColor: '#f5f5f5',
   borderRadius: '6px',
   whiteSpace: 'nowrap',
+};
+
+// 화살표 버튼 컨테이너 스타일
+const arrowButtonsContainerStyle = computed<CSSProperties>(() => {
+  if (!scaleInfo.value) return {};
+  const { blueRect } = scaleInfo.value;
+  return {
+    position: 'absolute' as const,
+    // 상단 쪽으로 올리기 (파란 박스 위에서 조금 아래)
+    top: `${blueRect.y + 40}px`,
+    left: `${blueRect.x}px`,
+    width: `${blueRect.width}px`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0 20px',
+    zIndex: 100,
+    pointerEvents: 'none', // 컨테이너는 이벤트 통과
+  };
+});
+
+// 화살표 버튼 스타일
+const arrowButtonStyle = (): CSSProperties => {
+  return {
+    pointerEvents: 'auto', // 실제 버튼에서만 클릭 가능
+    width: '40px',
+    height: '40px',
+    border: '2px solid #007AFF',
+    borderRadius: '50%',
+    backgroundColor: '#fff',
+    color: '#007AFF',
+    fontSize: '20px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  };
 };
 
 const getPillarStyleDropdownPosition = () => {

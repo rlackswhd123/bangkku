@@ -3,7 +3,7 @@ import { ref, computed, readonly } from 'vue';
 import { MultiRoomState, createInitialRoomState, reinitializeFacesForShape } from '../models/roomState';
 import { RoomShape, FaceId, getActiveFaces } from '../models/roomShape';
 import { RoomFaceState } from '../models/roomFace';
-import { Pillar, Shelf, Section, GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from '../../../types';
+import { Pillar, Section, GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from '../../../types';
 
 /**
  * 전역 방 상태
@@ -107,15 +107,50 @@ export function useRoomStore() {
   };
 
   /**
-   * 활성 면 전환
+   * 활성 면 전환 (스냅샷 처리 포함)
    */
-  const setActiveFaceId = (faceId: FaceId) => {
-    // 현재 방 형태에서 사용 가능한 면인지 확인
-    if (availableFaces.value.includes(faceId)) {
-      roomState.value.activeFaceId = faceId;
-    } else {
-      console.warn(`Face ${faceId} is not available in shape ${roomState.value.roomShape}`);
+  const setActiveFaceId = async (
+    faceId: FaceId,
+    options?: {
+      captureSnapshot?: boolean;
+      snapshotData?: {
+        imageDataUrl: string;
+        imageElement: HTMLImageElement;
+        sourceFaceX: number;
+        sourceFaceY: number;
+        contentHash?: string;
+      };
     }
+  ) => {
+    // 현재 방 형태에서 사용 가능한 면인지 확인
+    if (!availableFaces.value.includes(faceId)) {
+      console.warn(`Face ${faceId} is not available in shape ${roomState.value.roomShape}`);
+      return;
+    }
+
+    const currentFaceId = roomState.value.activeFaceId;
+    const currentFace = roomState.value.faces[currentFaceId];
+
+    // 면 전환 시: 현재 면(떠나는 면)의 스냅샷 캡처
+    if (options?.captureSnapshot && options?.snapshotData) {
+      const { imageDataUrl, imageElement, sourceFaceX, sourceFaceY, contentHash } = options.snapshotData;
+      
+      // 현재 면(currentFaceId)의 스냅샷을 저장 (떠나는 면을 캡처)
+      currentFace.projectedSnapshot = {
+        imageDataUrl,
+        imageElement,
+        sourceFaceId: currentFaceId, // 자기 자신의 ID
+        sourceFaceX,
+        sourceFaceY,
+        timestamp: Date.now(),
+        contentHash, // 해시 저장
+      };
+      
+      console.log(`스냅샷 캡처 & 저장: 면 ${currentFaceId} (자신을 캡처)`);
+    }
+
+    // 활성 면 변경
+    roomState.value.activeFaceId = faceId;
   };
 
   /**
