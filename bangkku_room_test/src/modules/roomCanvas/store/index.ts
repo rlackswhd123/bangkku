@@ -289,6 +289,23 @@ export function useRoomStore() {
   };
 
   /**
+   * 특정 면의 가구 배열 설정
+   */
+  const setFaceFurnitures = (faceId: FaceId, furnitures: PlacedFurniture[]) => {
+    const face = roomState.value.faces[faceId];
+    if (face) {
+      face.furnitures = furnitures;
+    }
+  };
+
+  /**
+   * 현재 활성 면의 가구 배열 설정
+   */
+  const setActiveFaceFurnitures = (furnitures: PlacedFurniture[]) => {
+    setFaceFurnitures(roomState.value.activeFaceId, furnitures);
+  };
+
+  /**
    * 섹션 추가
    */
   const addSection = (section: Section) => {
@@ -627,6 +644,7 @@ export function useRoomStore() {
     setFacePillars,
     setActiveFacePillars,
     setActiveFaceSections,
+    setActiveFaceFurnitures,
     addSection,
     removeSection,
     setPillarStyleAllFaces,

@@ -81,12 +81,14 @@ export interface Section {
 
 // 드래그 상태 타입
 export interface DragState {
-  type: 'pillar' | 'shelf' | null;
+  type: 'pillar' | 'shelf' | 'furniture' | null;
   targetKey: number | null;
   startX?: number;        // 드래그 시작 마우스 위치 (px)
   startY?: number;        // 드래그 시작 마우스 위치 (px)
-  originalX?: number;     // 기둥 원래 x 위치 (mm)
+  originalX?: number;     // 기둥/가구 원래 x 위치 (mm)
   originalHeightMm?: number;  // 선반 원래 높이 (mm)
+  ghostXMm?: number;      // 가구 드래그 시 고스트 x (mm)
+  lastValidXMm?: number;  // 가구 드래그 시 마지막 유효 x (mm)
 }
 
 // 방 크기 제약
@@ -292,4 +294,3 @@ export const DEFAULT_ROOM: RoomState = {
   roomHeightMm: 3400,  // 높이 고정값
   roomDepthMm: 500,
 };
-
