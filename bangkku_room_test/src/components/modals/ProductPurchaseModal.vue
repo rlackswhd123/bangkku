@@ -37,13 +37,6 @@
                 <span :style="categoryIconStyle">▶</span>
                 가구
               </div>
-              <div
-                @click="currentCategory = 'item'"
-                :style="getCategoryItemStyle('item')"
-              >
-                <span :style="categoryIconStyle">▶</span>
-                소품
-              </div>
             </div>
           </div>
           <!-- 오른쪽 메인 콘텐츠 영역 -->
@@ -126,12 +119,6 @@
                   가구 상품이 없습니다.
                 </div>
               </div>
-              <!-- 소품 카테고리 -->
-              <div v-if="currentCategory === 'item'" :style="shelfGridStyle">
-                <div :style="emptyCategoryMessageStyle">
-                  준비 중입니다.
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -185,7 +172,7 @@ const emit = defineEmits<{
   selectFurniture: [product: FurnitureProduct];
 }>();
 
-const currentCategory = ref<'all' | 'furniture' | 'item'>('all');
+const currentCategory = ref<'all' | 'furniture'>('all');
 
 // 가구 필터링: 추천(배치 가능) / 비추천 분리
 const filteredFurnitureProducts = computed(() => {
@@ -225,7 +212,7 @@ const filteredFurnitureProducts = computed(() => {
 });
 
 // 카테고리 항목 스타일 동적 생성
-const getCategoryItemStyle = (category: 'all' | 'furniture' | 'item') => {
+const getCategoryItemStyle = (category: 'all' | 'furniture') => {
   const isActive = currentCategory.value === category;
   return {
     padding: '10px 12px',

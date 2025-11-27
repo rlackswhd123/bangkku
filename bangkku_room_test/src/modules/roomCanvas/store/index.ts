@@ -282,32 +282,30 @@ export function useRoomStore() {
 
       const firstRightSection = rightSections[0];
       firstRightSection.startPillarKey = sectionToRemove.startPillarKey;
-      
+
       const newStartPillar = face.pillars.find((p) => p.pillarKey === firstRightSection.startPillarKey);
       const newEndPillar = face.pillars.find((p) => p.pillarKey === firstRightSection.endPillarKey);
       if (newStartPillar && newEndPillar) {
         firstRightSection.x = newEndPillar.x - newStartPillar.x;
       }
-      
-      firstRightSection.shelves.forEach((shelf) => {
-        shelf.sectionKey = sectionToRemove.sectionKey;
-      });
+
+      // ✅ 수정: 선반의 sectionKey는 변경하지 않음 (섹션 중심 구조)
+      // 선반은 sections[].shelves에 포함되어 있으므로 섹션이 이동하면 자동으로 따라감
 
       for (let i = 1; i < rightSections.length; i++) {
         const currentSection = rightSections[i];
         const previousSection = rightSections[i - 1];
-        
+
         currentSection.startPillarKey = previousSection.endPillarKey;
-        
+
         const currentStartPillar = face.pillars.find((p) => p.pillarKey === currentSection.startPillarKey);
         const currentEndPillar = face.pillars.find((p) => p.pillarKey === currentSection.endPillarKey);
         if (currentStartPillar && currentEndPillar) {
           currentSection.x = currentEndPillar.x - currentStartPillar.x;
         }
-        
-        currentSection.shelves.forEach((shelf) => {
-          shelf.sectionKey = previousSection.sectionKey;
-        });
+
+        // ✅ 수정: 선반의 sectionKey는 변경하지 않음 (섹션 중심 구조)
+        // 각 섹션의 선반들은 해당 섹션에 그대로 유지됨
       }
     }
 
