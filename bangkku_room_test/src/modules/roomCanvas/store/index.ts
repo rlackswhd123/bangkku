@@ -419,7 +419,7 @@ export function useRoomStore() {
     if (!face) return;
 
     const { imageDataUrl, imageElement, sourceFaceX, sourceFaceY, contentHash } = snapshotData;
-    
+
     face.projectedSnapshot = {
       imageDataUrl,
       imageElement,
@@ -429,8 +429,25 @@ export function useRoomStore() {
       timestamp: Date.now(),
       contentHash,
     };
-    
+
     console.log(`면 ${faceId} 스냅샷 업데이트 완료`);
+  };
+
+  /**
+   * 특정 면이 변경되었을 때 모든 면에서 해당 면의 투영 스냅샷을 무효화합니다.
+   * 섹션 삭제, 기둥 추가/삭제 등으로 면의 콘텐츠가 변경되었을 때 호출됩니다.
+   * @param sourceFaceId - 변경된 면의 ID (이 면의 스냅샷을 다른 면에서 제거)
+   */
+  const invalidateSnapshotsOfFace = (sourceFaceId: FaceId) => {
+    Object.values(roomState.value.faces).forEach((face) => {
+      // 각 면의 projectedSnapshot이 sourceFaceId를 참조하고 있으면 null로 설정
+      if (face.projectedSnapshot?.sourceFaceId === sourceFaceId) {
+        face.projectedSnapshot = null;
+        console.log(`면 ${face.faceKey}의 투영 스냅샷 무효화 (sourceFaceId: ${sourceFaceId})`);
+      }
+    });
+
+    console.log(`✅ 면 ${sourceFaceId}의 모든 투영 스냅샷 무효화 완료`);
   };
 
   return {
@@ -447,7 +464,7 @@ export function useRoomStore() {
     availableFaces: readonly(availableFaces),
     allFaces: readonly(allFaces),
     settings: readonly(settings),
-    
+
     // Actions
     setRoomName,
     setRoomShape,
@@ -466,6 +483,7 @@ export function useRoomStore() {
     loadRoomState,
     getFaceState,
     updateFaceSnapshot,
+    invalidateSnapshotsOfFace,
     updateGlobalSettings,
     resetGlobalSettings,
   };

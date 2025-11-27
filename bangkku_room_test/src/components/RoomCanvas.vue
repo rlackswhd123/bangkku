@@ -425,13 +425,17 @@ const handleMouseDown = (e: MouseEvent) => {
           emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
         } else {
           console.log('🗑️ 섹션 삭제 시작:', button.sectionKey);
+
+          // 1. 섹션 삭제
           store.removeSection(button.sectionKey);
-          // 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
+
+          // 2. 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
+          // 이렇게 하면 다른 면으로 이동했을 때 업데이트된 스냅샷이 표시됩니다
           setTimeout(async () => {
-            console.log('📸 섹션 삭제 후 스냅샷 캡처 시작');
+            console.log('📸 섹션 삭제 후 스냅샷 재캡처 시작');
             await captureCurrentFaceSnapshot();
             emit('sectionDeleted');
-          }, 100); // 50ms에서 100ms로 증가
+          }, 100);
         }
         return;
       }
@@ -846,10 +850,11 @@ const captureCurrentFaceSnapshot = async () => {
     const hasFurniture = currentFace.pillars.length > 0 || 
                         currentFace.sections.length > 0;
     
-    // 빈 면은 스냅샷 제거 (투명 이미지로 대체)
+    // 빈 면은 스냅샷 제거
     if (!hasFurniture) {
       console.log(`🚫 면 ${currentFaceId} 스냅샷 생략 (빈 면) - 기존 스냅샷 제거`);
-      store.updateFaceSnapshot(currentFaceId, null as any);
+      const face = store.getFaceState(currentFaceId);
+      face.projectedSnapshot = null;
       return;
     }
 
