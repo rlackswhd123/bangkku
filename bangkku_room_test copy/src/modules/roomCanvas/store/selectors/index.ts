@@ -1,0 +1,54 @@
+// store/selectors/index.ts: 유용한 selector 함수들
+import { computed, ComputedRef } from 'vue';
+import { FaceId } from '../../models/roomShape';
+import { useRoomStore } from '../index';
+
+/**
+ * 특정 면의 가구 설치 여부를 반환하는 selector (섹션 중심 구조)
+ */
+export function useFaceHasShelf(faceId: FaceId): ComputedRef<boolean> {
+  const store = useRoomStore();
+  return computed(() => {
+    const face = store.getFaceState(faceId);
+    const hasShelves = face.sections.some(section => section.shelves.length > 0);
+    return face.hasShelf || face.pillars.length > 0 || hasShelves;
+  });
+}
+
+/**
+ * 현재 활성 면의 가구 개수를 반환하는 selector
+ */
+export function useActiveFaceFurnitureCount(): ComputedRef<{ pillars: number; shelves: number }> {
+  const store = useRoomStore();
+  return computed(() => ({
+    pillars: store.activeFacePillars.value.length,
+    shelves: store.activeFaceShelves.value.length,
+  }));
+}
+
+/**
+ * 모든 면의 상태 요약 정보를 반환 (섹션 중심 구조)
+ */
+export function useAllFacesSummary(): ComputedRef<
+  Array<{
+    faceKey: FaceId;
+    hasShelf: boolean;
+    pillarCount: number;
+    shelfCount: number;
+  }>
+> {
+  const store = useRoomStore();
+  return computed(() =>
+    store.allFaces.value.map((face) => {
+      const shelfCount = face.sections.reduce((sum, section) => sum + section.shelves.length, 0);
+      const hasShelves = face.sections.some(section => section.shelves.length > 0);
+      return {
+        faceKey: face.faceKey,
+        hasShelf: face.hasShelf || face.pillars.length > 0 || hasShelves,
+        pillarCount: face.pillars.length,
+        shelfCount,
+      };
+    })
+  );
+}
+

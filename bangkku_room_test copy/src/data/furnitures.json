@@ -1,0 +1,46 @@
+{
+  "furnitures": [
+    {
+      "prodKey": 9001,
+      "name": "슬림 수납장",
+      "widthMm": 600,
+      "heightMm": 2500,
+      "price": 189000,
+      "image": "/src/images/pillar/서랍_선반.png"
+    },
+    {
+      "prodKey": 9002,
+      "name": "와이드 서랍장",
+      "widthMm": 2400,
+      "heightMm": 500,
+      "price": 249000,
+      "image": "/src/images/pillar/서랍_선반.png"
+    },
+    {
+      "prodKey": 9003,
+      "name": "중형 서랍장",
+      "widthMm": 1200,
+      "heightMm": 900,
+      "price": 159000,
+      "image": "/src/images/pillar/서랍_선반.png"
+    },
+    {
+      "prodKey": 9004,
+      "name": "높은 장식장",
+      "widthMm": 1000,
+      "heightMm": 2000,
+      "price": 199000,
+      "image": "/src/images/pillar/서랍_선반.png"
+    },
+    {
+      "prodKey": 9005,
+      "name": "로우 보드",
+      "widthMm": 1800,
+      "heightMm": 450,
+      "price": 179000,
+      "image": "/src/images/pillar/서랍_선반.png"
+    }
+  ]
+}
+
+
