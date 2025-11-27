@@ -65,8 +65,8 @@
                     <div
                       v-for="product in filteredFurnitureProducts.recommended"
                       :key="product.prodKey"
-                      @click="$emit('selectFurniture', product)"
-                      :style="shelfCardStyle"
+                      @click="handleFurnitureClick(product)"
+                      :style="getFurnitureCardStyle(product)"
                       @mouseenter="handleShelfCardHover"
                       @mouseleave="handleShelfCardLeave"
                     >
@@ -165,6 +165,7 @@ const emit = defineEmits<{
 }>();
 
 const currentCategory = ref<'furniture'>('furniture');
+const selectedProdKey = ref<number | null>(null);
 
 // 가구 필터링: 추천(배치 가능) / 비추천 분리
 const filteredFurnitureProducts = computed(() => {
@@ -214,6 +215,27 @@ const getCategoryItemStyle = (category: 'furniture') => {
   };
 };
 
+const getFurnitureCardStyle = (product: FurnitureProduct) => {
+  const base = {
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    padding: '16px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    backgroundColor: '#fff',
+  };
+
+  if (selectedProdKey.value === product.prodKey) {
+    return {
+      ...base,
+      borderColor: '#007AFF',
+      boxShadow: '0 4px 12px rgba(0,122,255,0.2)',
+    };
+  }
+
+  return base;
+};
+
 // 이벤트 핸들러
 const handleShelfCardHover = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLElement;
@@ -241,6 +263,11 @@ const handleModalApplyButtonHover = (e: MouseEvent) => {
 
 const handleModalApplyButtonLeave = (e: MouseEvent) => {
   (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#007AFF';
+};
+
+const handleFurnitureClick = (product: FurnitureProduct) => {
+  selectedProdKey.value = product.prodKey;
+  emit('selectFurniture', product);
 };
 
 // 스타일 정의
@@ -453,4 +480,3 @@ const modalApplyButtonStyle = {
   transition: 'all 0.2s',
 };
 </script>
-
