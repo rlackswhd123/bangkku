@@ -270,5 +270,55 @@
       "price": 104900,
       "image": "/src/images/pillar/서랍_선반.png"
     }
+  ],
+  "furniture": [
+    {
+      "prodKey": 4001,
+      "name": "600 폭 키큰 장롱",
+      "widthMm": 600,
+      "heightMm": 2000,
+      "depthMm": 400,
+      "price": 249000
+    },
+    {
+      "prodKey": 4002,
+      "name": "3000 폭 낮은 거실장",
+      "widthMm": 3000,
+      "heightMm": 500,
+      "depthMm": 400,
+      "price": 189000
+    },
+    {
+      "prodKey": 4003,
+      "name": "800 폭 수납장",
+      "widthMm": 800,
+      "heightMm": 1800,
+      "depthMm": 400,
+      "price": 159000
+    },
+    {
+      "prodKey": 4004,
+      "name": "1200 폭 서랍장",
+      "widthMm": 1200,
+      "heightMm": 900,
+      "depthMm": 400,
+      "price": 139000
+    },
+    {
+      "prodKey": 4005,
+      "name": "900 폭 책장",
+      "widthMm": 900,
+      "heightMm": 2100,
+      "depthMm": 400,
+      "price": 179000
+    },
+    {
+      "prodKey": 4006,
+      "name": "1500 폭 와이드 장",
+      "widthMm": 1500,
+      "heightMm": 1600,
+      "depthMm": 400,
+      "price": 199000
+    }
   ]
 }

@@ -102,7 +102,6 @@ export const ROOM_CONSTRAINTS = {
 // 기둥/선반 제약
 export const PILLAR_SHELF_CONSTRAINTS = {
   PILLAR_WIDTH_PX: 10,        // 기둥 폭 (px, 고정)
-  PILLAR_THICKNESS_MM: 0,     // 기둥 두께 (mm, 기본값 0) - 나중에 설정 가능하도록 GlobalSettings에 추가
   MIN_PILLAR_SPACING_MM: 400, // 기둥 간 최소 간격 (mm)
   MAX_PILLAR_SPACING_MM: 1000, // 기둥 간 최대 간격 (mm)
   MIN_SHELF_SPACING_MM: 300,  // 선반 간 최소 간격 (mm)
@@ -187,7 +186,6 @@ export interface GlobalSettings {
     modal: number;
     overlay: number;
   };
-  pillarThicknessMm: number;  // 기둥 두께 (mm) - CS/DU 기둥 충돌 체크 시 사용, 기본값 0
 }
 
 // 글로벌 설정 기본값
@@ -243,38 +241,10 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     modal: 9999,
     overlay: 999,
   },
-  pillarThicknessMm: PILLAR_SHELF_CONSTRAINTS.PILLAR_THICKNESS_MM,  // 기둥 두께 (mm, 기본값 0)
 };
 
 // ShelfProduct 타입은 제거하고 Shelf 타입으로 통일
 // JSON 카탈로그도 Shelf 구조 사용
-
-// 바닥 가구 배치 가능 공간 정보
-export interface PlacementRect {
-  // 위치 및 크기 정보
-  x: number;           // 시작 x 좌표 (mm)
-  y: number;           // 시작 y 좌표 (바닥 위치, mm)
-  width: number;       // 가로 길이 (mm)
-  height: number;      // 배치 가능한 세로 높이 (mm) - 선반 제약 고려
-  
-  // 메타 정보
-  faceId: string;      // 어느 벽면인지 (예: 'front', 'left', 'right')
-  sectionIndices: number[];  // 포함된 칸 인덱스들 (예: [0], [0,1], [1,2])
-  isEmptyWallIncluded: boolean;  // 빈 벽 영역이 포함되었는지
-  
-  // 제약 정보
-  lowestShelfY?: number;  // 가장 낮은 선반의 y 위치 (mm, 없으면 undefined)
-  affectedShelves: number[];  // 이 영역에 영향을 주는 선반 shelfKey들
-}
-
-// 특정 가구에 맞는 배치 가능 공간 (필터링된 결과)
-export interface FilteredPlacementRect extends PlacementRect {
-  furnitureWidth: number;   // 확인한 가구 가로 (mm)
-  furnitureHeight: number;  // 확인한 가구 세로 (mm)
-  canFit: boolean;          // 배치 가능 여부
-  remainingWidth: number;   // 남는 가로 공간 (mm)
-  remainingHeight: number;  // 남는 세로 공간 (mm)
-}
 
 // 기본값
 export const DEFAULT_ROOM: RoomState = {

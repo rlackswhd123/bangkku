@@ -37,13 +37,7 @@
                 <span :style="categoryIconStyle">▶</span>
                 가구
               </div>
-              <div
-                @click="currentCategory = 'item'"
-                :style="getCategoryItemStyle('item')"
-              >
-                <span :style="categoryIconStyle">▶</span>
-                소품
-              </div>
+              <!-- 소품 카테고리는 선반 모달로 분리 -->
             </div>
           </div>
           <!-- 오른쪽 메인 콘텐츠 영역 -->
@@ -126,12 +120,6 @@
                   가구 상품이 없습니다.
                 </div>
               </div>
-              <!-- 소품 카테고리 -->
-              <div v-if="currentCategory === 'item'" :style="shelfGridStyle">
-                <div :style="emptyCategoryMessageStyle">
-                  준비 중입니다.
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -185,7 +173,7 @@ const emit = defineEmits<{
   selectFurniture: [product: FurnitureProduct];
 }>();
 
-const currentCategory = ref<'all' | 'furniture' | 'item'>('all');
+const currentCategory = ref<'all' | 'furniture'>('all');
 
 // 가구 필터링: 추천(배치 가능) / 비추천 분리
 const filteredFurnitureProducts = computed(() => {
@@ -209,9 +197,9 @@ const filteredFurnitureProducts = computed(() => {
   const others: FurnitureProduct[] = [];
   
   props.furnitureProducts.forEach((product) => {
-    // 가구 크기가 rect와 일치하는지 확인
+    // 가구 크기가 배치 가능 rect 안에 들어가는지 확인
     const matchingRect = validRects.find(
-      rect => rect.width === product.widthMm && rect.height >= product.heightMm
+      rect => rect.width >= product.widthMm && rect.height >= product.heightMm
     );
     
     if (matchingRect) {
@@ -225,7 +213,7 @@ const filteredFurnitureProducts = computed(() => {
 });
 
 // 카테고리 항목 스타일 동적 생성
-const getCategoryItemStyle = (category: 'all' | 'furniture' | 'item') => {
+const getCategoryItemStyle = (category: 'all' | 'furniture') => {
   const isActive = currentCategory.value === category;
   return {
     padding: '10px 12px',
@@ -366,6 +354,7 @@ const shelfGridStyle = {
   gridTemplateColumns: 'repeat(3, 1fr)',
   gap: '16px',
   minHeight: '450px',
+  alignItems: 'flex-start' as const, // 카드가 세로로 늘어나지 않도록 상단 정렬
 };
 
 const shelfCardStyle = {

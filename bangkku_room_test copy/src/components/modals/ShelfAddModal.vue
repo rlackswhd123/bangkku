@@ -1,4 +1,4 @@
-<!-- ProductPurchaseModal.vue: 상품 구매 모달 컴포넌트 -->
+<!-- ShelfAddModal.vue: 선반 추가 모달 컴포넌트 -->
 <template>
   <Teleport to="body">
     <div v-if="isOpen">
@@ -14,28 +14,21 @@
       >
         <!-- 모달 헤더 -->
         <div :style="modalHeaderStyle">
-          <div :style="modalTitleStyle">상품 구매</div>
-          <div :style="modalSubtitleStyle">추가할 상품을 선택해주세요</div>
+          <div :style="modalTitleStyle">선반 추가</div>
+          <div :style="modalSubtitleStyle">추가할 선반이나 소품을 선택해주세요</div>
         </div>
-        <!-- 좌우 분할 영역 -->
+        <!-- 좌우 분할 영역 (가구 구매 모달과 동일한 레이아웃) -->
         <div :style="modalContentWrapperStyle">
           <!-- 왼쪽 카테고리 사이드바 -->
           <div :style="categorySidebarStyle">
             <div :style="categoryTitleStyle">카테고리</div>
             <div :style="categoryListStyle">
               <div
-                @click="currentCategory = 'all'"
-                :style="getCategoryItemStyle('all')"
+                @click="currentCategory = 'shelf'"
+                :style="getCategoryItemStyle('shelf')"
               >
                 <span :style="categoryIconStyle">▶</span>
-                전체
-              </div>
-              <div
-                @click="currentCategory = 'furniture'"
-                :style="getCategoryItemStyle('furniture')"
-              >
-                <span :style="categoryIconStyle">▶</span>
-                가구
+                선반
               </div>
               <div
                 @click="currentCategory = 'item'"
@@ -50,86 +43,77 @@
           <div :style="mainContentStyle">
             <!-- 모달 본문 (스크롤 영역) -->
             <div :style="modalBodyStyle">
-              <!-- 전체 카테고리 -->
-              <div v-if="currentCategory === 'all'">
-                <div :style="emptyCategoryMessageStyle">
-                  전체 상품을 보려면 각 카테고리를 선택해주세요.
-                </div>
-              </div>
-              <!-- 가구 카테고리 -->
-              <div v-if="currentCategory === 'furniture'">
-                <!-- Rect 미리보기 토글 -->
-                <div :style="{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }">
-                  <button
-                    @click="$emit('toggleRectPreview')"
-                    :style="{
-                      padding: '8px 16px',
-                      backgroundColor: showRectPreview ? '#4CAF50' : '#E0E0E0',
-                      color: showRectPreview ? '#FFF' : '#000',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }"
-                  >
-                    {{ showRectPreview ? 'Rect 미리보기 끄기' : 'Rect 미리보기 켜기' }}
-                  </button>
-                  <span :style="{ fontSize: '12px', color: '#666' }">
-                    배치 가능 위치: {{ availableRectsCount }}개
-                  </span>
-                </div>
-                
-                <!-- 추천 섹션 (배치 가능한 가구) -->
-                <div v-if="filteredFurnitureProducts.recommended.length > 0">
+              <!-- 선반 카테고리 -->
+              <div v-if="currentCategory === 'shelf'">
+                <!-- 추천 섹션 (섹션 폭에 맞는 상품) -->
+                <div v-if="filteredProducts.recommended.length > 0">
                   <div :style="shelfGridStyle">
                     <div
-                      v-for="product in filteredFurnitureProducts.recommended"
+                      v-for="product in filteredProducts.recommended"
                       :key="product.prodKey"
-                      @click="$emit('selectFurniture', product)"
+                      @click="handleProductSelect(product)"
                       :style="shelfCardStyle"
                       @mouseenter="handleShelfCardHover"
                       @mouseleave="handleShelfCardLeave"
                     >
                       <div :style="shelfImageAreaStyle">
-                        <div :style="shelfPreviewPlaceholderStyle" />
+                        <img
+                          v-if="getProductImage(product.type)"
+                          :src="getProductImage(product.type)?.src"
+                          :alt="product.name"
+                          :style="shelfPreviewImageStyle"
+                        />
+                        <div v-else :style="shelfPreviewPlaceholderStyle" />
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.widthMm }} × {{ product.heightMm }} (mm)</div>
-                      <div :style="shelfCardPriceStyle" v-if="product.price">{{ product.price?.toLocaleString() }} 원</div>
+                      <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>
                 </div>
 
-                <!-- 기타 상품 섹션 (배치 불가능한 크기) -->
-                <div v-if="filteredFurnitureProducts.others.length > 0" :style="{ marginTop: filteredFurnitureProducts.recommended.length > 0 ? '32px' : '0' }">
-                  <div v-if="filteredFurnitureProducts.recommended.length > 0" :style="othersSectionTitleStyle">
+                <!-- 기타 상품 섹션 (맞지 않는 크기) -->
+                <div v-if="filteredProducts.others.length > 0" :style="{ marginTop: filteredProducts.recommended.length > 0 ? '32px' : '0' }">
+                  <div v-if="filteredProducts.recommended.length > 0" :style="othersSectionTitleStyle">
                     기타 크기
                   </div>
                   <div :style="shelfGridStyle">
                     <div
-                      v-for="product in filteredFurnitureProducts.others"
+                      v-for="product in filteredProducts.others"
                       :key="product.prodKey"
                       :style="getDisabledShelfCardStyle()"
                     >
                       <div :style="shelfImageAreaStyle">
-                        <div :style="shelfPreviewPlaceholderStyle" />
+                        <img
+                          v-if="getProductImage(product.type)"
+                          :src="getProductImage(product.type)?.src"
+                          :alt="product.name"
+                          :style="shelfPreviewImageStyle"
+                        />
+                        <div v-else :style="shelfPreviewPlaceholderStyle" />
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.widthMm }} × {{ product.heightMm }} (mm)</div>
-                      <div :style="shelfCardPriceStyle" v-if="product.price">{{ product.price?.toLocaleString() }} 원</div>
+                      <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>
                 </div>
 
-                <!-- 가구가 없을 때 -->
-                <div v-if="filteredFurnitureProducts.recommended.length === 0 && filteredFurnitureProducts.others.length === 0" :style="emptyCategoryMessageStyle">
-                  가구 상품이 없습니다.
+                <!-- 선반 상품이 없을 때 -->
+                <div
+                  v-if="filteredProducts.recommended.length === 0 && filteredProducts.others.length === 0"
+                  :style="emptyCategoryMessageStyle"
+                >
+                  선반 상품이 없습니다.
                 </div>
               </div>
-              <!-- 소품 카테고리 -->
+
+              <!-- 소품 카테고리 (UI만 선반 모달로 분리, 실제 상품 리스트는 추후 추가) -->
               <div v-if="currentCategory === 'item'" :style="shelfGridStyle">
                 <div :style="emptyCategoryMessageStyle">
-                  준비 중입니다.
+                  소품 상품은 준비 중입니다.
                 </div>
               </div>
             </div>
@@ -145,14 +129,6 @@
           >
             취소
           </button>
-          <button
-            @click="$emit('apply')"
-            :style="modalApplyButtonStyle"
-            @mouseenter="handleModalApplyButtonHover"
-            @mouseleave="handleModalApplyButtonLeave"
-          >
-            적용
-          </button>
         </div>
       </div>
     </div>
@@ -161,83 +137,48 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-
-type FurnitureProduct = {
-  prodKey: number;
-  name: string;
-  widthMm: number;
-  heightMm: number;
-  price?: number;
-};
+import type { Shelf } from '../../types';
 
 const props = defineProps<{
   isOpen: boolean;
-  showRectPreview: boolean;
-  availableRectsCount: number;
-  furnitureProducts: FurnitureProduct[];
-  availableRects: Array<{ width: number; height: number; isValid: boolean }>;
+  sectionWidth: number;
+  products: Shelf[];
+  getProductImage: (type: 'normal' | 'hanger' | 'drawer') => { src: string } | null;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  apply: [];
-  toggleRectPreview: [];
-  selectFurniture: [product: FurnitureProduct];
+  select: [product: Shelf];
 }>();
 
-const currentCategory = ref<'all' | 'furniture' | 'item'>('all');
+// 카테고리 상태: 선반 / 소품
+const currentCategory = ref<'shelf' | 'item'>('shelf');
 
-// 가구 필터링: 추천(배치 가능) / 비추천 분리
-const filteredFurnitureProducts = computed(() => {
-  if (currentCategory.value !== 'furniture') {
+// 선반 필터링: 추천(섹션 폭에 맞는) / 비추천 분리
+const filteredProducts = computed(() => {
+  if (!props.sectionWidth) {
     return {
       recommended: [],
-      others: [],
+      others: props.products,
     };
   }
-  
-  const validRects = props.availableRects.filter(r => r.isValid);
-  
-  if (validRects.length === 0 || props.furnitureProducts.length === 0) {
-    return {
-      recommended: [],
-      others: props.furnitureProducts,
-    };
-  }
-  
-  const recommended: FurnitureProduct[] = [];
-  const others: FurnitureProduct[] = [];
-  
-  props.furnitureProducts.forEach((product) => {
-    // 가구 크기가 rect와 일치하는지 확인
-    const matchingRect = validRects.find(
-      rect => rect.width === product.widthMm && rect.height >= product.heightMm
-    );
-    
-    if (matchingRect) {
+
+  const recommended: Shelf[] = [];
+  const others: Shelf[] = [];
+
+  props.products.forEach((product) => {
+    if (product.x === props.sectionWidth) {
       recommended.push(product);
     } else {
       others.push(product);
     }
   });
-  
+
   return { recommended, others };
 });
 
-// 카테고리 항목 스타일 동적 생성
-const getCategoryItemStyle = (category: 'all' | 'furniture' | 'item') => {
-  const isActive = currentCategory.value === category;
-  return {
-    padding: '10px 12px',
-    backgroundColor: isActive ? '#007AFF' : 'transparent',
-    color: isActive ? '#fff' : '#333',
-    borderRadius: '4px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-  };
+const handleProductSelect = (product: Shelf) => {
+  emit('select', product);
 };
 
 // 이벤트 핸들러
@@ -259,14 +200,6 @@ const handleModalButtonHover = (e: MouseEvent) => {
 
 const handleModalButtonLeave = (e: MouseEvent) => {
   (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fff';
-};
-
-const handleModalApplyButtonHover = (e: MouseEvent) => {
-  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#0056b3';
-};
-
-const handleModalApplyButtonLeave = (e: MouseEvent) => {
-  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#007AFF';
 };
 
 // 스타일 정의
@@ -393,6 +326,17 @@ const othersSectionTitleStyle = {
   marginBottom: '16px',
 };
 
+const emptyCategoryMessageStyle = {
+  gridColumn: '1 / -1',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '450px',
+  textAlign: 'center' as const,
+  color: '#999',
+  fontSize: '16px',
+};
+
 const shelfImageAreaStyle = {
   width: '100%',
   height: '120px',
@@ -402,6 +346,12 @@ const shelfImageAreaStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+};
+
+const shelfPreviewImageStyle = {
+  width: '90%',
+  height: '100%',
+  objectFit: 'contain' as const,
 };
 
 const shelfPreviewPlaceholderStyle = {
@@ -418,6 +368,12 @@ const shelfCardTitleStyle = {
   marginBottom: '8px',
 };
 
+const shelfCardSubtitleStyle = {
+  fontSize: '12px',
+  color: '#999',
+  marginBottom: '8px',
+};
+
 const shelfCardSizeStyle = {
   fontSize: '12px',
   color: '#666',
@@ -429,17 +385,6 @@ const shelfCardPriceStyle = {
   fontWeight: '600',
   color: '#333',
   marginTop: '4px',
-};
-
-const emptyCategoryMessageStyle = {
-  gridColumn: '1 / -1',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '450px',
-  textAlign: 'center' as const,
-  color: '#999',
-  fontSize: '16px',
 };
 
 const modalFooterStyle = {
@@ -462,16 +407,20 @@ const modalCancelButtonStyle = {
   transition: 'all 0.2s',
 };
 
-const modalApplyButtonStyle = {
-  padding: '10px 24px',
-  border: 'none',
-  borderRadius: '6px',
-  backgroundColor: '#007AFF',
-  color: '#fff',
-  fontSize: '14px',
-  cursor: 'pointer',
-  fontWeight: '500',
-  transition: 'all 0.2s',
+// 카테고리 항목 스타일 동적 생성 (가구 구매 모달과 동일한 UX)
+const getCategoryItemStyle = (category: 'shelf' | 'item') => {
+  const isActive = currentCategory.value === category;
+  return {
+    padding: '10px 12px',
+    backgroundColor: isActive ? '#007AFF' : 'transparent',
+    color: isActive ? '#fff' : '#333',
+    borderRadius: '4px',
+    fontSize: '14px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+  };
 };
 </script>
 

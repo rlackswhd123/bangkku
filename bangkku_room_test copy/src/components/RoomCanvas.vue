@@ -118,11 +118,9 @@ import {
 } from '../modules/roomCanvas/canvas/drawers/buttons';
 import { createPillarPositionValidator, createShelfPositionValidator } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
-import { getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
+import { FaceId, getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
 import productsData from '../data/products.json';
-import { type AvailableRect } from '../modules/roomCanvas/utils/rectCalculator';
-import { calculatePlacementRects } from '../utils/placement';
-import { convertPlacementRectsToAvailableRects } from '../utils/placementAdapter';
+import { calculateAvailableRects, type AvailableRect } from '../modules/roomCanvas/utils/rectCalculator';
 import ShelfAddModal from './modals/ShelfAddModal.vue';
 import ProductPurchaseModal from './modals/ProductPurchaseModal.vue';
 
@@ -172,43 +170,34 @@ onMounted(() => {
 const furnitureProducts = ref<Array<{ prodKey: number; name: string; widthMm: number; heightMm: number; price?: number }>>([]);
 
 // Rect 리스트 계산 (미리보기 켜져있거나 가구 카테고리 열릴 때 계산)
-// 새로운 placement 로직 사용: 단일 칸, 칸 결합(1+2, 1+2+3, 2+3 등), 빈벽 포함
 const availableRects = computed<AvailableRect[]>(() => {
   // 미리보기가 켜져있거나 상품 구매 모달이 열려있을 때만 계산
   if (!showRectPreview.value && !productPurchaseModal.value) {
     return [];
   }
   
-  if (!scaleInfo.value) {
+  if (!scaleInfo.value || activeFaceSections.value.length === 0) {
     return [];
   }
   
   // 기본 가구 높이 (임시값, 나중에 실제 가구 높이로 변경)
   const defaultFurnitureHeightMm = 500; // 예시: 500mm
   
-  // 새로운 로직: calculatePlacementRects 사용
-  // - 단일 칸, 연속된 칸들의 모든 조합 계산
-  // - 빈 벽 영역 포함
-  // - 여러 칸 결합 시 가장 낮은 선반 기준으로 높이 계산
-  const placementRects = calculatePlacementRects(
-    `face-${store.activeFaceId.value}`, // faceId (문자열로 변환)
+  const rects = calculateAvailableRects(
     activeFaceSections.value,
     activeFacePillars.value,
-    roomState.value.roomWidthMm, // 벽면 전체 너비
-    roomState.value.roomHeightMm
-  );
-  
-  // PlacementRect를 기존 렌더링 파이프라인의 AvailableRect로 변환
-  const rects = convertPlacementRectsToAvailableRects(
-    placementRects,
-    defaultFurnitureHeightMm
+    activeFaceShelves.value,
+    roomState.value.roomHeightMm,
+    store.settings.value,
+    scaleInfo.value,
+    defaultFurnitureHeightMm,
+    [] // 기존 가구 목록 (나중에 추가)
   );
   
   // 디버깅용 로그
   if (showRectPreview.value) {
-    console.log('📐 Placement Rects (새 로직):', placementRects);
-    console.log('📐 Available Rects (변환됨):', rects);
-    console.log('📐 총 배치 가능 공간:', rects.length);
+    console.log('📐 Available Rects:', rects);
+    console.log('📐 Valid Rects:', rects.filter(r => r.isValid).length);
   }
   
   return rects;
@@ -436,13 +425,17 @@ const handleMouseDown = (e: MouseEvent) => {
           emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
         } else {
           console.log('🗑️ 섹션 삭제 시작:', button.sectionKey);
+
+          // 1. 섹션 삭제
           store.removeSection(button.sectionKey);
-          // 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
+
+          // 2. 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
+          // 이렇게 하면 다른 면으로 이동했을 때 업데이트된 스냅샷이 표시됩니다
           setTimeout(async () => {
-            console.log('📸 섹션 삭제 후 스냅샷 캡처 시작');
+            console.log('📸 섹션 삭제 후 스냅샷 재캡처 시작');
             await captureCurrentFaceSnapshot();
             emit('sectionDeleted');
-          }, 100); // 50ms에서 100ms로 증가
+          }, 100);
         }
         return;
       }
@@ -475,7 +468,6 @@ const handleMouseDown = (e: MouseEvent) => {
     }
   }
 
-  // 소품 추가 버튼 클릭 처리
   if (activeFaceShelves.value.length > 0 && sections.length > 0) {
     const itemAddButtons = calculateItemAddButtonPositions(activeFaceShelves.value, sections, pillars, scaleInfo.value);
     const buttonWidth = 50;
@@ -487,9 +479,19 @@ const handleMouseDown = (e: MouseEvent) => {
         y >= button.y - buttonHeight / 2 &&
         y <= button.y + buttonHeight / 2
       ) {
-        // 상품 구매 모달 열기 (소품 카테고리)
-        productPurchaseModal.value = {
+        // 섹션 폭 계산 (선반/소품 필터링용)
+        const section = sections.find((s) => s.sectionKey === button.sectionKey);
+        const sectionWidth = section?.x || 0;
+
+        // 선반/소품 추가 모달 열기 (ShelfAddModal 재사용)
+        shelfAddModal.value = {
           show: true,
+          sectionKey: button.sectionKey,
+          sectionWidth,
+          startPillarKey: section?.startPillarKey ?? 0,
+          endPillarKey: section?.endPillarKey ?? 0,
+          x: button.x,
+          y: button.y,
         };
         return;
       }
@@ -848,10 +850,11 @@ const captureCurrentFaceSnapshot = async () => {
     const hasFurniture = currentFace.pillars.length > 0 || 
                         currentFace.sections.length > 0;
     
-    // 빈 면은 스냅샷 제거 (투명 이미지로 대체)
+    // 빈 면은 스냅샷 제거
     if (!hasFurniture) {
       console.log(`🚫 면 ${currentFaceId} 스냅샷 생략 (빈 면) - 기존 스냅샷 제거`);
-      store.updateFaceSnapshot(currentFaceId, null as any);
+      const face = store.getFaceState(currentFaceId);
+      face.projectedSnapshot = null;
       return;
     }
 
