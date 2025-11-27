@@ -7,6 +7,7 @@
       @settings="isGlobalSettingsModalOpen = true"
       @save="handleSave"
       @load="handleLoad"
+      @productPurchase="handleProductPurchase"
     />
 
     <!-- 메인 콘텐츠 -->
@@ -226,6 +227,11 @@ const pillarMoveModal = ref<{
   pillarKey: number;
   totalShelvesCount: number;
 } | null>(null);
+
+// 가구 구매 버튼 클릭 시 RoomCanvas 내부의 상품 구매 모달 열기
+const handleProductPurchase = () => {
+  roomCanvasRef.value?.openProductPurchaseModal();
+};
 
 // ObjectInfoPanel에 전달할 가변 배열 뷰 (스토어는 readonly이므로 UI 용도로만 타입 캐스팅)
 const uiPillars = computed<Pillar[]>(() => store.activeFacePillars.value as unknown as Pillar[]);

@@ -1,5 +1,5 @@
 // rectCalculator.ts: 가구 배치 가능 위치(Rect) 계산 로직
-import { Pillar, Section, Shelf, GlobalSettings, FURNITURE_DIMENSIONS } from '../../../types';
+import { Pillar, Section, Shelf, ScaleInfo, GlobalSettings, FURNITURE_DIMENSIONS, PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 
 /**
  * 배치 가능한 Rect 정보
@@ -18,21 +18,19 @@ export interface AvailableRect {
 /**
  * 기둥 충돌 체크
  * RS (후면 싱글)는 제외, CS/DU만 충돌 체크
- * 기둥 두께는 settings.pillarThicknessMm을 사용 (기본값 0)
+ * 기둥 두께는 0으로 간주 (점으로 취급)
  */
 function checkPillarCollision(
   furnitureX: number,      // 가구 시작 X 위치 (mm)
   furnitureWidth: number,  // 가구 폭 (mm)
   section: Section,
-  pillars: Pillar[]
+  pillars: Pillar[],
+  scaleInfo: ScaleInfo
 ): boolean {
   const sectionPillars = pillars.filter(
-    p => p.pillarKey === section.startPillarKey ||
+    p => p.pillarKey === section.startPillarKey || 
          p.pillarKey === section.endPillarKey
   );
-
-  // 기둥 두께는 고정값 사용 (0mm로 처리)
-  const pillarThicknessMm = 0;
   
   for (const pillar of sectionPillars) {
     // RS 기둥은 충돌 체크 제외
@@ -41,21 +39,12 @@ function checkPillarCollision(
     }
     
     // CS/DU 기둥만 충돌 체크
+    // 기둥 두께를 0으로 간주하여 기둥 X 위치가 가구 X 범위 안에 있는지만 체크
     const furnitureRight = furnitureX + furnitureWidth;
     
-    if (pillarThicknessMm === 0) {
-      // 기둥 두께가 0이면 기둥 X 위치가 가구 X 범위 안에 있는지만 체크
-      if (furnitureX < pillar.x && pillar.x < furnitureRight) {
-        return true; // 충돌 발생
-      }
-    } else {
-      // 기둥 두께가 있으면 기둥 영역과 가구 영역이 겹치는지 AABB 체크
-      const pillarLeft = pillar.x - pillarThicknessMm / 2;
-      const pillarRight = pillar.x + pillarThicknessMm / 2;
-      
-      if (furnitureX < pillarRight && furnitureRight > pillarLeft) {
-        return true; // 충돌 발생
-      }
+    // 기둥 위치가 가구 X 범위 안에 있으면 충돌
+    if (furnitureX < pillar.x && pillar.x < furnitureRight) {
+      return true; // 충돌 발생
     }
   }
   
@@ -171,14 +160,16 @@ export function calculateAvailableRects(
   shelves: Shelf[],
   roomHeightMm: number,
   settings: GlobalSettings,
+  scaleInfo: ScaleInfo,
   furnitureHeightMm: number,
   existingFurniture: Array<{ x: number; y: number; width: number; height: number }> = []
 ): AvailableRect[] {
   const rects: AvailableRect[] = [];
-
+  
   // 가구는 항상 바닥에 닿아야 함
   const furnitureY = furnitureHeightMm / 2; // 고정값
   const furnitureTop = furnitureY + furnitureHeightMm / 2;
+  const furnitureBottom = 0; // 바닥
   
   // 각 섹션별로 독립적으로 계산
   for (const section of sections) {
@@ -252,7 +243,8 @@ export function calculateAvailableRects(
         sectionX,
         sectionWidth,
         section,
-        pillars
+        pillars,
+        scaleInfo
       );
     }
     

@@ -3,7 +3,7 @@ import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
 import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
-import { FaceId } from '../models/roomShape';
+import { FaceId, getPhysicalAdjacentFace } from '../models/roomShape';
 import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import {
@@ -21,6 +21,7 @@ import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacing
 import { drawFrontWall, drawLeftWall, drawRightWall } from '../canvas/drawers/walls';
 import { drawProjectedSnapshot } from '../canvas/drawers/projectedSnapshot';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
+import { AvailableRect } from '../utils/rectCalculator';
 
 interface UseRoomCanvasRendererParams {
   canvasRef: Ref<HTMLCanvasElement | null>;
@@ -34,6 +35,8 @@ interface UseRoomCanvasRendererParams {
   shelfImages: Ref<ShelfImages>;
   wallImages: Ref<WallImages>;
   onScaleChange: (scaleInfo: ScaleInfo) => void;
+  availableRects?: AvailableRect[] | Ref<AvailableRect[]>;
+  showRectPreview?: boolean | Ref<boolean>;
 }
 
 /**
@@ -58,6 +61,8 @@ export function useRoomCanvasRenderer({
   shelfImages,
   wallImages,
   onScaleChange,
+  availableRects = [],
+  showRectPreview = false,
 }: UseRoomCanvasRendererParams) {
   const scaleInfo = ref<ScaleInfo | null>(null);
 
@@ -115,9 +120,9 @@ export function useRoomCanvasRenderer({
       // 오프스크린 캔버스: 메인 캔버스와 동일한 크기 사용 (이미 설정됨)
     } else {
       // 메인 캔버스: 컨테이너 크기에 맞춤
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
     }
 
     const currentScaleInfo = updateScaleInfo(canvas);
@@ -126,8 +131,8 @@ export function useRoomCanvasRenderer({
     
     // 투명 배경이 아닌 경우에만 흰색 배경 그리기
     if (!transparentBackground) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // 1. 스켈레톤 그리기 (파란/빨간 박스)
@@ -136,38 +141,37 @@ export function useRoomCanvasRenderer({
     // 2. 벽 배경 이미지 (스냅샷 캡처 시 제외 가능)
     if (!excludeWalls) {
       // 정면 벽 배경 이미지 (가장 뒤)
-    drawFrontWall(ctx, currentScaleInfo, wallImages.value);
-    
+      drawFrontWall(ctx, currentScaleInfo, wallImages.value);
+      
       // 좌우 벽 배경 이미지 (정면 벽보다 앞)
-    drawLeftWall(ctx, currentScaleInfo, wallImages.value);
-    drawRightWall(ctx, currentScaleInfo, wallImages.value);
+      drawLeftWall(ctx, currentScaleInfo, wallImages.value);
+      drawRightWall(ctx, currentScaleInfo, wallImages.value);
     }
 
     // 4. 투영된 스냅샷 이미지 및 라벨 (스냅샷 캡처 시 제외 가능)
     if (!excludeWalls) {
-    const currentActiveFaceId = store.activeFaceId.value;
-    const availableFaces = store.availableFaces.value;
-    const currentIndex = availableFaces.indexOf(currentActiveFaceId);
-    
-    if (currentIndex !== -1 && availableFaces.length > 0) {
-      // 왼쪽 파란 벽: 오른쪽 인접 면 (다음 면)의 스냅샷
-      const rightAdjacentFaceId = availableFaces[(currentIndex + 1) % availableFaces.length] as FaceId;
-      const rightAdjacentFace = store.getFaceState(rightAdjacentFaceId);
-      if (rightAdjacentFace.projectedSnapshot) {
-        drawProjectedSnapshot(
-          ctx,
-          rightAdjacentFace.projectedSnapshot,
-          currentScaleInfo.leftWallQuad
-        );
-      }
+      const currentActiveFaceId = store.activeFaceId.value;
       
-      // 오른쪽 파란 벽: 왼쪽 인접 면 (이전 면)의 스냅샷
-      const leftAdjacentFaceId = availableFaces[(currentIndex - 1 + availableFaces.length) % availableFaces.length] as FaceId;
+      // 물리적 인접 면 계산 (1면의 왼쪽=4면, 오른쪽=2면)
+      const leftAdjacentFaceId = getPhysicalAdjacentFace(currentActiveFaceId, 'left');
+      const rightAdjacentFaceId = getPhysicalAdjacentFace(currentActiveFaceId, 'right');
+      
+      // 왼쪽 파란 벽: 물리적 왼쪽 인접 면의 스냅샷
       const leftAdjacentFace = store.getFaceState(leftAdjacentFaceId);
       if (leftAdjacentFace.projectedSnapshot) {
         drawProjectedSnapshot(
           ctx,
           leftAdjacentFace.projectedSnapshot,
+          currentScaleInfo.leftWallQuad
+        );
+      }
+      
+      // 오른쪽 파란 벽: 물리적 오른쪽 인접 면의 스냅샷
+      const rightAdjacentFace = store.getFaceState(rightAdjacentFaceId);
+      if (rightAdjacentFace.projectedSnapshot) {
+        drawProjectedSnapshot(
+          ctx,
+          rightAdjacentFace.projectedSnapshot,
           currentScaleInfo.rightWallQuad
         );
       }
@@ -189,24 +193,23 @@ export function useRoomCanvasRenderer({
 
       const labelY = redRect.y - verticalPadding + 40;
 
-      // 왼쪽 파란 벽 상단 (오른쪽 인접 면)
+      // 왼쪽 파란 벽 상단 (물리적 왼쪽 인접 면)
       const leftWallCenterX = (blueRect.x + redRect.x) / 2;
-      ctx.fillText(`${rightAdjacentFaceId}면`, leftWallCenterX, labelY);
+      ctx.fillText(`${leftAdjacentFaceId}면`, leftWallCenterX, labelY);
 
       // 정면 빨간 벽 상단 (현재 활성 면)
       const frontWallCenterX = redRect.x + redRect.width / 2;
       ctx.fillText(`${currentActiveFaceId}면`, frontWallCenterX, labelY);
 
-      // 오른쪽 파란 벽 상단 (왼쪽 인접 면)
+      // 오른쪽 파란 벽 상단 (물리적 오른쪽 인접 면)
       const rightWallCenterX = (redRect.x + redRect.width + blueRect.x + blueRect.width) / 2;
-      ctx.fillText(`${leftAdjacentFaceId}면`, rightWallCenterX, labelY);
+      ctx.fillText(`${rightAdjacentFaceId}면`, rightWallCenterX, labelY);
 
       // 컨텍스트 복원
       ctx.fillStyle = prevFillStyle;
       ctx.font = prevFont;
       ctx.textAlign = prevTextAlign;
       ctx.textBaseline = prevTextBaseline;
-      }
     }
 
     // 5. UI 버튼들 (스냅샷 캡처 시 제외)
@@ -248,6 +251,82 @@ export function useRoomCanvasRenderer({
     });
 
     drawCornerShelfImages(ctx, currentPillars, currentScaleInfo, currentRoom.roomWidthMm, cornerImages.value);
+
+    // Rect 미리보기 그리기
+    const currentShowRectPreview = unref(showRectPreview);
+    const currentAvailableRects = unref(availableRects) || [];
+    
+    if (currentShowRectPreview) {
+      if (currentAvailableRects.length > 0) {
+        ctx.save();
+        currentAvailableRects.forEach((rect) => {
+          const rectX = mmToPxX(rect.x, currentScaleInfo);
+          const rectWidth = (rect.width * currentScaleInfo.scaleX);
+          
+          // rect의 높이는 최대 높이까지이므로 바닥(0mm)부터 시작하도록 조정
+          const rectTopPx = mmToPxY(0, currentScaleInfo); // 바닥 위치 (Y축이 위로 갈수록 작아짐)
+          const rectBottomPx = mmToPxY(rect.height, currentScaleInfo); // 최대 높이 위치
+          const actualRectHeight = rectTopPx - rectBottomPx; // Y축이 위로 갈수록 작아지므로
+          
+          // b_limit 범위가 있으면 배치 불가능 영역을 별도로 표시
+          if (rect.shelfBottom !== undefined && rect.bLimit !== undefined && rect.bLimit > 0) {
+            const bLimitStartMm = rect.shelfBottom - rect.bLimit; // b_limit 범위 시작 (바닥에서)
+            const bLimitStartPx = mmToPxY(bLimitStartMm, currentScaleInfo);
+            const bLimitEndPx = mmToPxY(rect.shelfBottom, currentScaleInfo);
+            const bLimitHeightPx = bLimitStartPx - bLimitEndPx;
+            
+            // b_limit 범위 밖 (배치 가능 영역) - 초록색
+            const availableStartPx = rectTopPx; // 바닥
+            const availableEndPx = bLimitStartPx; // b_limit 시작 위치
+            const availableHeightPx = availableStartPx - availableEndPx;
+            
+            if (availableHeightPx > 0) {
+              // 배치 가능 영역은 항상 초록색
+              ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+              ctx.fillRect(rectX, availableEndPx, rectWidth, availableHeightPx);
+              
+              ctx.strokeStyle = 'rgba(0, 200, 0, 0.8)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(rectX, availableEndPx, rectWidth, availableHeightPx);
+            }
+            
+            // b_limit 범위 (배치 불가능 영역) - 노란색 또는 회색
+            if (bLimitHeightPx > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; // 노란색 반투명
+              ctx.fillRect(rectX, bLimitEndPx, rectWidth, bLimitHeightPx);
+              
+              ctx.strokeStyle = 'rgba(200, 200, 0, 0.6)';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(rectX, bLimitEndPx, rectWidth, bLimitHeightPx);
+            }
+          } else {
+            // 선반이 없거나 b_limit이 0인 경우
+            // 선반이 있지만 b_limit이 0인 경우도 선반 바닥까지 초록색으로 표시
+            if (rect.shelfBottom !== undefined) {
+              // 선반 바닥까지 초록색으로 표시
+              const shelfBottomPx = mmToPxY(rect.shelfBottom, currentScaleInfo);
+              const shelfBottomHeightPx = rectTopPx - shelfBottomPx;
+              
+              ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+              ctx.fillRect(rectX, shelfBottomPx, rectWidth, shelfBottomHeightPx);
+              
+              ctx.strokeStyle = 'rgba(0, 200, 0, 0.8)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(rectX, shelfBottomPx, rectWidth, shelfBottomHeightPx);
+            } else {
+              // 선반이 없는 경우 전체 영역 표시
+              ctx.fillStyle = rect.isValid ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 0, 0, 0.3)';
+              ctx.fillRect(rectX, rectBottomPx, rectWidth, actualRectHeight);
+              
+              ctx.strokeStyle = rect.isValid ? 'rgba(0, 200, 0, 0.8)' : 'rgba(200, 0, 0, 0.8)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(rectX, rectBottomPx, rectWidth, actualRectHeight);
+            }
+          }
+        });
+        ctx.restore();
+      }
+    }
 
     currentPillars
       .filter((pillar) => (pillar.pillarStyle || 'RS') === 'DU')
