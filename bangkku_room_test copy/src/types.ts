@@ -118,6 +118,16 @@ export interface FurnitureDimensions {
   depthMm: number;    // 깊이 (mm)
 }
 
+// 가구 메타 정보 (카탈로그/배치 공통)
+export interface FurnitureProduct {
+  prodKey: number;
+  name: string;
+  widthMm: number;
+  heightMm: number;
+  price?: number;
+  image?: string;
+}
+
 // 선반 타입별 크기 정보
 export const FURNITURE_DIMENSIONS: Record<'normal' | 'hanger' | 'drawer', FurnitureDimensions> = {
   normal: {

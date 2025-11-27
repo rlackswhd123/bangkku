@@ -3,7 +3,10 @@ import { ref, computed, readonly } from 'vue';
 import { MultiRoomState, createInitialRoomState, reinitializeFacesForShape } from '../models/roomState';
 import { RoomShape, FaceId, getActiveFaces } from '../models/roomShape';
 import { RoomFaceState } from '../models/roomFace';
-import { Pillar, Section, GlobalSettings, DEFAULT_GLOBAL_SETTINGS } from '../../../types';
+import { Pillar, Section, GlobalSettings, DEFAULT_GLOBAL_SETTINGS, FurnitureProduct } from '../../../types';
+import { PlacedFurniture, ActiveFurniture } from '../models/furniture';
+import { calculatePlacementRects } from '../../../utils/placement';
+import { snapToGrid } from '../../../utils/coordinates';
 
 /**
  * 전역 방 상태
@@ -14,6 +17,14 @@ const roomState = ref<MultiRoomState>(createInitialRoomState());
  * 전역 설정 상태
  */
 const globalSettings = ref<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
+
+/**
+ * 현재 선택된 가구 (카탈로그에서 선택)
+ */
+const activeFurnitureState = ref<ActiveFurniture>(null);
+
+let furnitureIdSeed = 1;
+const createFurnitureId = () => furnitureIdSeed++ + Date.now();
 
 /**
  * 방 스토어 훅
@@ -76,6 +87,11 @@ export function useRoomStore() {
   const activeFaceSections = computed(() => activeFace.value.sections);
 
   /**
+   * 현재 활성 면의 바닥 가구 배열
+   */
+  const activeFaceFurnitures = computed(() => activeFace.value.furnitures);
+
+  /**
    * 현재 방 형태에서 사용 가능한 면 ID 배열
    */
   const availableFaces = computed(() => getActiveFaces(roomState.value.roomShape));
@@ -89,6 +105,11 @@ export function useRoomStore() {
    * 전역 설정
    */
   const settings = computed(() => globalSettings.value);
+
+  /**
+   * 현재 선택된 가구
+   */
+  const activeFurniture = computed(() => activeFurnitureState.value);
 
   // ===== Actions =====
 
@@ -339,6 +360,7 @@ export function useRoomStore() {
       face.pillars = [];
       face.sections = []; // 섹션 삭제 시 선반도 자동으로 삭제됨
       face.hasShelf = false;
+      face.furnitures = [];
     }
   };
 
@@ -400,6 +422,81 @@ export function useRoomStore() {
   };
 
   /**
+   * 선택된 가구 설정/해제
+   */
+  const setActiveFurniture = (furniture: FurnitureProduct | null) => {
+    activeFurnitureState.value = furniture;
+  };
+
+  /**
+   * 현재 face의 PlacementRect 중 가장 왼쪽에서 자동 배치
+   */
+  const applyActiveFurnitureToCurrentFace = (): { success: boolean; message?: string } => {
+    const furniture = activeFurnitureState.value;
+    if (!furniture) {
+      return { success: false, message: '선택된 가구가 없습니다.' };
+    }
+
+    const face = activeFace.value;
+    const placementRects = calculatePlacementRects(
+      `face-${face.faceKey}`,
+      face.sections,
+      face.pillars,
+      face.face_x,
+      face.face_y
+    );
+
+    const targetRect = placementRects
+      .filter(rect => rect.width >= furniture.widthMm)
+      .sort((a, b) => a.x - b.x)[0];
+
+    if (!targetRect) {
+      return { success: false, message: '이 면에는 이 가구를 놓을 수 있는 공간이 없습니다.' };
+    }
+
+    const gridSize = globalSettings.value.gridSizeMm;
+    const snappedX = snapToGrid(targetRect.x, gridSize);
+    const clampedX = Math.min(
+      Math.max(snappedX, targetRect.x),
+      targetRect.x + targetRect.width - furniture.widthMm
+    );
+
+    const newFurniture: PlacedFurniture = {
+      ...furniture,
+      id: createFurnitureId(),
+      faceKey: face.faceKey,
+      xMm: clampedX,
+      yMm: 0,
+    };
+
+    face.furnitures = [...face.furnitures, newFurniture];
+    return { success: true };
+  };
+
+  /**
+   * 후보 위치가 현재 face의 PlacementRect 안에 완전히 포함되는지 확인
+   */
+  const canPlaceHereOnFace = (
+    faceKey: FaceId,
+    furnitureWidthMm: number,
+    candidateXMm: number
+  ): boolean => {
+    const face = roomState.value.faces[faceKey];
+    if (!face) return false;
+
+    const placementRects = calculatePlacementRects(
+      `face-${faceKey}`,
+      face.sections,
+      face.pillars,
+      face.face_x,
+      face.face_y
+    );
+
+    const candidateEnd = candidateXMm + furnitureWidthMm;
+    return placementRects.some(rect => candidateXMm >= rect.x && candidateEnd <= rect.x + rect.width);
+  };
+
+  /**
    * 특정 면의 스냅샷을 업데이트합니다.
    * 섹션 삭제 등으로 면이 변경되었을 때 호출됩니다.
    */
@@ -458,10 +555,12 @@ export function useRoomStore() {
     activeFaceMetrics: readonly(activeFaceMetrics),
     activeFacePillars: readonly(activeFacePillars),
     activeFaceShelves: readonly(activeFaceShelves),
+    activeFaceFurnitures: readonly(activeFaceFurnitures),
     activeFaceSections: readonly(activeFaceSections),
     availableFaces: readonly(availableFaces),
     allFaces: readonly(allFaces),
     settings: readonly(settings),
+    activeFurniture: readonly(activeFurniture),
 
     // Actions
     setRoomName,
@@ -484,6 +583,8 @@ export function useRoomStore() {
     invalidateSnapshotsOfFace,
     updateGlobalSettings,
     resetGlobalSettings,
+    setActiveFurniture,
+    applyActiveFurnitureToCurrentFace,
+    canPlaceHereOnFace,
   };
 }
-

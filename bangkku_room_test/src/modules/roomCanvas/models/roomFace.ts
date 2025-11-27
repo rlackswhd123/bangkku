@@ -1,6 +1,7 @@
 // roomFace.ts: 면별 상태 인터페이스 정의
 import { Pillar, Section } from '../../../types';
 import { FaceId } from './roomShape';
+import { PlacedFurniture } from './furniture';
 
 /**
  * 투영된 스냅샷 정보
@@ -28,6 +29,7 @@ export interface RoomFaceState {
   pillars: Pillar[];      // 이 면에 배치된 기둥 배열
   sections: Section[];    // 이 면의 섹션(칸) 배열 (선반은 sections[].shelves에만 저장)
   hasShelf: boolean;      // 시스템 선반 설치 여부
+  furnitures: PlacedFurniture[]; // 이 면에 배치된 바닥 가구 배열
   projectedSnapshot?: ProjectedSnapshot | null; // 투영된 스냅샷 (측면에 표시될 정면 이미지)
 }
 
@@ -56,6 +58,7 @@ export function createEmptyFaceState(
     pillars: [],
     sections: [],
     hasShelf: false,
+    furnitures: [],
   };
 }
 
@@ -83,8 +86,11 @@ export function calculateFaceContentHash(face: RoomFaceState): string {
     return `${s.sectionKey}:${s.x}:${s.startPillarKey}:${s.endPillarKey}:[${shelfData}]`;
   }).join('|');
   
+  const furnitureData = face.furnitures
+    .map(f => `${f.id}:${f.prodKey}:${f.xMm}:${f.yMm}`)
+    .join('|');
+  
   const dimensionData = `${face.face_x}x${face.face_y}`;
   
-  return `${dimensionData}::${pillarData}::${sectionData}`;
+  return `${dimensionData}::${pillarData}::${sectionData}::${furnitureData}`;
 }
-

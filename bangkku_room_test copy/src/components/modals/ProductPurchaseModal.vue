@@ -147,15 +147,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-
-type FurnitureProduct = {
-  prodKey: number;
-  name: string;
-  widthMm: number;
-  heightMm: number;
-  price?: number;
-  image?: string;
-};
+import type { FurnitureProduct } from '../../types';
 
 const props = defineProps<{
   isOpen: boolean;

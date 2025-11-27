@@ -124,6 +124,7 @@ import furnituresData from '../data/furnitures.json';
 import { type AvailableRect } from '../modules/roomCanvas/utils/rectCalculator';
 import { calculatePlacementRects } from '../utils/placement';
 import { convertPlacementRectsToAvailableRects } from '../utils/placementAdapter';
+import { PlacedFurniture } from '../modules/roomCanvas/models/furniture';
 import ShelfAddModal from './modals/ShelfAddModal.vue';
 import ProductPurchaseModal from './modals/ProductPurchaseModal.vue';
 
@@ -189,6 +190,14 @@ const furnitureProducts = ref<
   }>
 >([]);
 
+// Rect 미리보기 표시 여부 및 상품 구매 모달 상태
+const showRectPreview = ref(false);
+const productPurchaseModal = ref<{
+  show: boolean;
+} | null>(null);
+
+const selectedFurniture = computed(() => store.activeFurniture.value);
+
 // Rect 리스트 계산 (미리보기 켜져있거나 가구 카테고리 열릴 때 계산)
 // 새로운 placement 로직 사용: 단일 칸, 칸 결합(1+2, 1+2+3, 2+3 등), 빈벽 포함
 const availableRects = computed<AvailableRect[]>(() => {
@@ -197,12 +206,9 @@ const availableRects = computed<AvailableRect[]>(() => {
     return [];
   }
   
-  if (!scaleInfo.value) {
-    return [];
-  }
-  
   // 기본 가구 높이 (임시값, 나중에 실제 가구 높이로 변경)
   const defaultFurnitureHeightMm = 500; // 예시: 500mm
+  const furnitureHeightMm = selectedFurniture.value?.heightMm ?? defaultFurnitureHeightMm;
   
   // 새로운 로직: calculatePlacementRects 사용
   // - 단일 칸, 연속된 칸들의 모든 조합 계산
@@ -219,7 +225,7 @@ const availableRects = computed<AvailableRect[]>(() => {
   // PlacementRect를 기존 렌더링 파이프라인의 AvailableRect로 변환
   const rects = convertPlacementRectsToAvailableRects(
     placementRects,
-    defaultFurnitureHeightMm
+    furnitureHeightMm
   );
   
   // 디버깅용 로그
@@ -234,9 +240,6 @@ const availableRects = computed<AvailableRect[]>(() => {
 
 // 가구 필터링은 ProductPurchaseModal 컴포넌트 내부에서 처리됨
 
-// Rect 미리보기 표시 여부
-const showRectPreview = ref(false);
-
 // 기둥/선반 드래그 상태
 const dragState = ref<DragState>({
   type: null,
@@ -248,6 +251,7 @@ const activeFaceMetrics = computed(() => store.activeFaceMetrics.value);
 const activeFacePillars = computed<Pillar[]>(() => store.activeFacePillars.value as Pillar[]) as Ref<Pillar[]>;
 const activeFaceShelves = computed<Shelf[]>(() => store.activeFaceShelves.value as Shelf[]) as Ref<Shelf[]>;
 const activeFaceSections = computed<Section[]>(() => store.activeFaceSections.value as Section[]) as Ref<Section[]>;
+const activeFaceFurnitures = computed<PlacedFurniture[]>(() => store.activeFaceFurnitures.value as PlacedFurniture[]) as Ref<PlacedFurniture[]>;
 
 // RoomState 형식으로 변환 (기존 렌더러와 호환)
 const roomState = computed(() => ({
@@ -269,6 +273,7 @@ const { scaleInfo, render: renderCanvas } = useRoomCanvasRenderer({
   pillars: activeFacePillars,
   shelves: activeFaceShelves,
   sections: activeFaceSections,
+  furnitures: activeFaceFurnitures,
   dragState,
   cornerImages,
   shelfImages,
@@ -334,11 +339,6 @@ const shelfAddModal = ref<{
   endPillarKey: number;
   x: number;
   y: number;
-} | null>(null);
-
-// 상품 구매 모달 상태
-const productPurchaseModal = ref<{
-  show: boolean;
 } | null>(null);
 
 // 기둥 스타일 선택 상태
@@ -751,9 +751,8 @@ const getProductImage = (type: 'normal' | 'hanger' | 'drawer') => {
 
 // JSON 데이터에서 선택한 상품으로 선반 생성
 const handleFurnitureSelectFromModal = (product: { prodKey: number; name: string; widthMm: number; heightMm: number }) => {
-  // 가구 선택 시 처리 (나중에 구현)
-  console.log('가구 선택:', product);
-  // TODO: 가구 배치 로직 구현
+  store.setActiveFurniture(product);
+  emit('showToast', `${product.name} 가 선택되었습니다.`);
 };
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {
@@ -1141,6 +1140,14 @@ const handlePillarStyleMenuItemLeave = (style: 'RS' | 'CS' | 'DU', e: MouseEvent
 
 // 상품 적용 핸들러
 const handleProductApply = () => {
+  const result = store.applyActiveFurnitureToCurrentFace();
+  if (!result.success) {
+    if (result.message) {
+      emit('showToast', result.message);
+    }
+    return;
+  }
+  emit('showToast', '가구를 배치했습니다.');
   productPurchaseModal.value = null;
 };
 
@@ -1157,4 +1164,3 @@ defineExpose({
   openProductPurchaseModal,
 });
 </script>
-

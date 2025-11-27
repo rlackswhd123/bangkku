@@ -163,6 +163,7 @@ export function migrateFromLegacyState(
     pillars: legacyPillars || [],
     sections: [], // 레거시 선반은 섹션이 없으므로 빈 배열 (필요시 섹션으로 마이그레이션 가능)
     hasShelf: (legacyPillars?.length ?? 0) > 0 || (legacyShelves?.length ?? 0) > 0,
+    furnitures: [],
   };
 
   return state;
@@ -190,6 +191,6 @@ function migrateFace(face: RoomFaceState | undefined, faceKey: FaceId): RoomFace
     pillars: (face as any).pillars ?? [],
     sections: (face as any).sections ?? [],
     hasShelf: (face as any).hasShelf ?? false,
+    furnitures: (face as any).furnitures ?? [],
   };
 }
-

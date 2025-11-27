@@ -15,6 +15,7 @@ import {
   drawItemAddButtons,
   calculateItemAddButtonPositions,
 } from '../canvas/drawers/buttons';
+import { drawFurniture } from '../canvas/drawers/furniture';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
@@ -22,6 +23,7 @@ import { drawFrontWall, drawLeftWall, drawRightWall } from '../canvas/drawers/wa
 import { drawProjectedSnapshot } from '../canvas/drawers/projectedSnapshot';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 import { AvailableRect } from '../utils/rectCalculator';
+import { PlacedFurniture } from '../models/furniture';
 
 interface UseRoomCanvasRendererParams {
   canvasRef: Ref<HTMLCanvasElement | null>;
@@ -30,6 +32,7 @@ interface UseRoomCanvasRendererParams {
   pillars: Pillar[] | Ref<Pillar[]>;
   shelves: Shelf[] | Ref<Shelf[]>;
   sections: Section[] | Ref<Section[]>;
+  furnitures?: PlacedFurniture[] | Ref<PlacedFurniture[]>;
   dragState: DragState | Ref<DragState>;
   cornerImages: Ref<CornerImages>;
   shelfImages: Ref<ShelfImages>;
@@ -56,6 +59,7 @@ export function useRoomCanvasRenderer({
   pillars,
   shelves,
   sections,
+  furnitures = [],
   dragState,
   cornerImages,
   shelfImages,
@@ -113,6 +117,7 @@ export function useRoomCanvasRenderer({
     const currentPillars = unref(pillars);
     const currentShelves = unref(shelves);
     const currentSections = unref(sections);
+    const currentFurnitures = unref(furnitures);
     const currentDragState = unref(dragState);
 
     // 오프스크린 캔버스인 경우 메인 캔버스 크기 사용, 아니면 컨테이너 크기 사용
@@ -252,6 +257,11 @@ export function useRoomCanvasRenderer({
 
     drawCornerShelfImages(ctx, currentPillars, currentScaleInfo, currentRoom.roomWidthMm, cornerImages.value);
 
+    // 바닥 가구 그리기
+    currentFurnitures.forEach((furniture) => {
+      drawFurniture(ctx, furniture, currentScaleInfo);
+    });
+
     // Rect 미리보기 그리기
     const currentShowRectPreview = unref(showRectPreview);
     const currentAvailableRects = unref(availableRects) || [];
@@ -383,6 +393,7 @@ export function useRoomCanvasRenderer({
       () => unref(pillars),
       () => unref(shelves),
       () => unref(sections),
+      () => unref(furnitures),
       () => unref(dragState),
       () => cornerImages.value,
       () => shelfImages.value,
