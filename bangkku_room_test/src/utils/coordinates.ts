@@ -87,7 +87,7 @@ export function calculateScale(
   
   // 왼쪽/오른쪽 파란 벽 사다리꼴 좌표 계산
   // 일점 투시도 기준: 소실점을 화면 중앙으로 설정
-  const vanishingPointX = blueCenterX;
+  // const vanishingPointX = blueCenterX; // 현재는 사용되지 않지만 향후 투시 계산에 필요할 수 있음
   const vanishingPointY = blueCenterY;
   
   // 왼쪽 파란 벽 사다리꼴 (blueRect 왼쪽 여백 ~ redRect 왼쪽 경계)

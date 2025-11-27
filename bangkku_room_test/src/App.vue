@@ -14,10 +14,13 @@
       <!-- 캔버스 영역 -->
       <div :style="styles.canvasContainer">
         <RoomCanvas
+          ref="roomCanvasRef"
           @scale-change="setScaleInfo"
           @object-select="handleObjectSelect"
           @show-toast="showToast"
           @section-delete-request="handleSectionDeleteRequest"
+          @pillar-move-request="handlePillarMoveRequest"
+          @section-deleted="handleSectionDeleted"
         />
       </div>
 
@@ -134,6 +137,47 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 기둥 이동 확인 모달 -->
+    <Teleport to="body">
+      <div v-if="pillarMoveModal && pillarMoveModal.show">
+        <!-- 모달 외부 배경 -->
+        <div
+          :style="modalOverlayStyle"
+          @click="handlePillarMoveConfirm(false)"
+        />
+        <!-- 모달 컨텍스트 -->
+        <div
+          :style="modalStyle"
+          @click.stop
+        >
+          <div :style="modalTitleStyle">기둥 이동 확인</div>
+          <div :style="modalTextStyle">
+            선반 때문에 섹션 간격을 조절할 수 없습니다.
+            <br />
+            모든 선반({{ pillarMoveModal.totalShelvesCount }}개)을 삭제하고 진행하시겠습니까?
+          </div>
+          <div :style="modalButtonGroupStyle">
+            <button
+              @click="handlePillarMoveConfirm(false)"
+              :style="modalCancelButtonStyle"
+              @mouseenter="handleModalButtonHover"
+              @mouseleave="handleModalButtonLeave"
+            >
+              취소
+            </button>
+            <button
+              @click="handlePillarMoveConfirm(true)"
+              :style="modalConfirmButtonStyle"
+              @mouseenter="handleModalConfirmButtonHover"
+              @mouseleave="handleModalConfirmButtonLeave"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -145,7 +189,7 @@ import ShapeSelector from './components/ShapeSelector.vue';
 import GlobalSettingsModal from './components/GlobalSettingsModal.vue';
 import ObjectInfoPanel from './components/ObjectInfoPanel.vue';
 import Toast from './components/Toast.vue';
-import type { ScaleInfo, Pillar, Section } from './types';
+import type { ScaleInfo, Pillar, Section, Shelf } from './types';
 import { useRoomStore } from './modules/roomCanvas/store';
 import { RoomShape } from './modules/roomCanvas/models/roomShape';
 import { deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
@@ -158,6 +202,7 @@ const store = useRoomStore();
 const scaleInfo = ref<ScaleInfo | null>(null);
 const isShapeSelectorOpen = ref(false);
 const isGlobalSettingsModalOpen = ref(false);
+const roomCanvasRef = ref<InstanceType<typeof RoomCanvas> | null>(null);
 
 const selectedType = ref<'pillar' | 'shelf' | null>(null);
 const selectedKey = ref<number | null>(null);
@@ -174,6 +219,12 @@ const sectionDeleteModal = ref<{
 const shelfDeleteModal = ref<{
   show: boolean;
   shelfKey: number;
+} | null>(null);
+
+const pillarMoveModal = ref<{
+  show: boolean;
+  pillarKey: number;
+  totalShelvesCount: number;
 } | null>(null);
 
 // ObjectInfoPanel에 전달할 가변 배열 뷰 (스토어는 readonly이므로 UI 용도로만 타입 캐스팅)
@@ -246,9 +297,56 @@ const handleSectionDeleteConfirm = (confirmed: boolean) => {
 
   if (confirmed) {
     store.removeSection(sectionDeleteModal.value.sectionKey);
+    // 섹션 삭제 후 스냅샷 캡처 (다음 프레임에서 실행하여 렌더링 완료 보장)
+    setTimeout(() => {
+      roomCanvasRef.value?.captureCurrentFaceSnapshot();
+    }, 50);
   }
 
   sectionDeleteModal.value = null;
+};
+
+/** 섹션 삭제 완료 이벤트 핸들러 */
+const handleSectionDeleted = () => {
+  // RoomCanvas에서 직접 삭제한 경우에도 스냅샷이 캡처되므로 여기서는 추가 처리 불필요
+  // (이미 RoomCanvas에서 처리됨)
+};
+
+/** 기둥 이동 요청 핸들러 */
+const handlePillarMoveRequest = (pillarKey: number, totalShelvesCount: number) => {
+  pillarMoveModal.value = {
+    show: true,
+    pillarKey,
+    totalShelvesCount,
+  };
+};
+
+/** 기둥 이동 확인 모달에서 응답을 받아 선반 삭제 후 기둥 이동을 허용합니다. */
+const handlePillarMoveConfirm = (confirmed: boolean) => {
+  if (!pillarMoveModal.value) return;
+
+  if (confirmed) {
+    // 해당 기둥을 공유하는 섹션들의 모든 선반 삭제
+    const sections = [...store.activeFaceSections.value];
+    const sectionsWithPillar = sections.filter(
+      (s) => s.startPillarKey === pillarMoveModal.value!.pillarKey || s.endPillarKey === pillarMoveModal.value!.pillarKey
+    );
+    
+    // 해당 섹션들의 선반을 모두 제거
+    const updatedSections = sections.map((section) => {
+      if (sectionsWithPillar.some((s) => s.sectionKey === section.sectionKey)) {
+        return {
+          ...section,
+          shelves: [] as Shelf[],
+        };
+      }
+      return { ...section };
+    });
+    
+    store.setActiveFaceSections(updatedSections as Section[]);
+  }
+
+  pillarMoveModal.value = null;
 };
 
 /** 방 형태 선택 핸들러 */

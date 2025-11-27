@@ -117,18 +117,18 @@
                   선반
                 </div>
                 <div
-                  @click="productPurchaseModal && (productPurchaseModal.category = 'item')"
-                  :style="getCategoryItemStyle('item')"
-                >
-                  <span :style="categoryIconStyle">▶</span>
-                  소품
-                </div>
-                <div
                   @click="productPurchaseModal && (productPurchaseModal.category = 'furniture')"
                   :style="getCategoryItemStyle('furniture')"
                 >
                   <span :style="categoryIconStyle">▶</span>
                   가구
+                </div>
+                <div
+                  @click="productPurchaseModal && (productPurchaseModal.category = 'item')"
+                  :style="getCategoryItemStyle('item')"
+                >
+                  <span :style="categoryIconStyle">▶</span>
+                  소품
                 </div>
               </div>
             </div>
@@ -136,70 +136,62 @@
             <div :style="mainContentStyle">
               <!-- 모달 본문 (스크롤 영역) -->
               <div :style="modalBodyStyle">
-            <!-- 전체 카테고리 (선반 상품 표시) -->
-            <div v-if="productPurchaseModal.category === 'all' || productPurchaseModal.category === 'shelf'" :style="shelfGridStyle">
-              <!-- 일반 선반 카드 -->
-              <div
-                @click="handleShelfTypeSelectFromProductModal('normal')"
-                :style="shelfCardStyle"
-                @mouseenter="handleShelfCardHover"
-                @mouseleave="handleShelfCardLeave"
-              >
-                <div :style="shelfImageAreaStyle">
-                  <img
-                    v-if="shelfImages.normal && shelfImages.normal.complete"
-                    :src="shelfImages.normal.src"
-                    alt="일반 선반"
-                    :style="shelfPreviewImageStyle"
-                  />
-                  <div v-else :style="shelfPreviewPlaceholderStyle" />
+            <!-- 전체 카테고리 (선반 상품 표시 - JSON 기반, 필터링 적용) -->
+            <div v-if="productPurchaseModal.category === 'all' || productPurchaseModal.category === 'shelf'">
+              <!-- 추천 섹션 (섹션 폭에 맞는 상품) -->
+              <div v-if="filteredShelfProducts.recommended.length > 0">
+                <div :style="shelfGridStyle">
+                  <div
+                    v-for="product in filteredShelfProducts.recommended"
+                    :key="product.prodKey"
+                    @click="handleProductSelectFromModal(product)"
+                    :style="shelfCardStyle"
+                    @mouseenter="handleShelfCardHover"
+                    @mouseleave="handleShelfCardLeave"
+                  >
+                    <div :style="shelfImageAreaStyle">
+                      <img
+                        v-if="getProductImage(product.type)"
+                        :src="getProductImage(product.type)?.src"
+                        :alt="product.name"
+                        :style="shelfPreviewImageStyle"
+                      />
+                      <div v-else :style="shelfPreviewPlaceholderStyle" />
+                    </div>
+                    <div :style="shelfCardTitleStyle">{{ product.name }}</div>
+                    <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
+                    <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                    <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
+                  </div>
                 </div>
-                <div :style="shelfCardTitleStyle">일반 선반</div>
-                <div :style="shelfCardSubtitleStyle">wood</div>
-                <div :style="shelfCardSizeStyle">가변 × 200 × 400 (mm)</div>
-                <div :style="shelfCardPriceStyle">54,900 원</div>
               </div>
-              <!-- 옷걸이 선반 카드 -->
-              <div
-                @click="handleShelfTypeSelectFromProductModal('hanger')"
-                :style="shelfCardStyle"
-                @mouseenter="handleShelfCardHover"
-                @mouseleave="handleShelfCardLeave"
-              >
-                <div :style="shelfImageAreaStyle">
-                  <img
-                    v-if="shelfImages.hanger && shelfImages.hanger.complete"
-                    :src="shelfImages.hanger.src"
-                    alt="옷걸이 선반"
-                    :style="shelfPreviewImageStyle"
-                  />
-                  <div v-else :style="shelfPreviewPlaceholderStyle" />
+
+              <!-- 기타 상품 섹션 (맞지 않는 크기) -->
+              <div v-if="filteredShelfProducts.others.length > 0" :style="{ marginTop: filteredShelfProducts.recommended.length > 0 ? '32px' : '0' }">
+                <div v-if="filteredShelfProducts.recommended.length > 0" :style="othersSectionTitleStyle">
+                  기타 크기
                 </div>
-                <div :style="shelfCardTitleStyle">옷걸이 선반</div>
-                <div :style="shelfCardSubtitleStyle">wood</div>
-                <div :style="shelfCardSizeStyle">가변 × 200 × 400 (mm)</div>
-                <div :style="shelfCardPriceStyle">54,900 원</div>
-              </div>
-              <!-- 서랍 선반 카드 -->
-              <div
-                @click="handleShelfTypeSelectFromProductModal('drawer')"
-                :style="shelfCardStyle"
-                @mouseenter="handleShelfCardHover"
-                @mouseleave="handleShelfCardLeave"
-              >
-                <div :style="shelfImageAreaStyle">
-                  <img
-                    v-if="shelfImages.drawer && shelfImages.drawer.complete"
-                    :src="shelfImages.drawer.src"
-                    alt="서랍 선반"
-                    :style="shelfPreviewImageStyle"
-                  />
-                  <div v-else :style="shelfPreviewPlaceholderStyle" />
+                <div :style="shelfGridStyle">
+                  <div
+                    v-for="product in filteredShelfProducts.others"
+                    :key="product.prodKey"
+                    :style="getDisabledShelfCardStyle()"
+                  >
+                    <div :style="shelfImageAreaStyle">
+                      <img
+                        v-if="getProductImage(product.type)"
+                        :src="getProductImage(product.type)?.src"
+                        :alt="product.name"
+                        :style="shelfPreviewImageStyle"
+                      />
+                      <div v-else :style="shelfPreviewPlaceholderStyle" />
+                    </div>
+                    <div :style="shelfCardTitleStyle">{{ product.name }}</div>
+                    <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
+                    <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                    <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
+                  </div>
                 </div>
-                <div :style="shelfCardTitleStyle">서랍 선반</div>
-                <div :style="shelfCardSubtitleStyle">wood</div>
-                <div :style="shelfCardSizeStyle">가변 × 200 × 400 (mm)</div>
-                <div :style="shelfCardPriceStyle">54,900 원</div>
               </div>
             </div>
             <!-- 가구 카테고리 -->
@@ -239,63 +231,32 @@
         </div>
       </div>
     </Teleport>
-    <!-- 코너장 확인 모달 -->
-    <Teleport to="body">
-      <div v-if="cornerPillarModal && cornerPillarModal.show">
-        <!-- 모달 외부 배경 -->
-        <div
-          :style="modalOverlayStyle"
-          @click="handleCornerPillarConfirm(false)"
-        />
-        <!-- 모달 컨텍스트 -->
-        <div
-          :style="cornerPillarModalStyle"
-          @click.stop
-        >
-          <div :style="modalTitleStyle">코너장으로 구성하시겠습니까?</div>
-          <div :style="modalTextStyle">
-            해당 기둥을 코너장으로 설정합니다. 이 기둥에 연결된 모든 선반이 코너장으로 표시됩니다.
-          </div>
-          <div :style="modalButtonGroupStyle">
-            <button
-              @click="handleCornerPillarConfirm(false)"
-              :style="modalCancelButtonStyle"
-              @mouseenter="handleModalButtonHover"
-              @mouseleave="handleModalButtonLeave"
-            >
-              취소
-            </button>
-            <button
-              @click="handleCornerPillarConfirm(true)"
-              :style="modalConfirmButtonStyle"
-              @mouseenter="handleModalConfirmButtonHover"
-              @mouseleave="handleModalConfirmButtonLeave"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type CSSProperties, type Ref } from 'vue';
+import { ref, computed, type CSSProperties, type Ref, onMounted } from 'vue';
 import { Pillar, Shelf, Section, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo } from '../types';
 import { mmToPxX, mmToPxY, pxToMmX, pxToMmY, snapToGrid } from '../utils/coordinates';
 import { useImageAssets } from '../modules/roomCanvas/hooks/useImageAssets';
 import { useRoomCanvasRenderer, useCursorUpdater } from '../modules/roomCanvas/hooks/useRoomCanvasRenderer';
-import { calculateShelfButtonPositions, calculateSectionDeleteButtonPositions, calculateItemAddButtonPositions } from '../modules/roomCanvas/canvas/drawers/buttons';
+import {
+  calculateShelfButtonPositions,
+  calculateSectionDeleteButtonPositions,
+  calculateItemAddButtonPositions,
+} from '../modules/roomCanvas/canvas/drawers/buttons';
 import { createPillarPositionValidator, createShelfPositionValidator } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
 import { FaceId } from '../modules/roomCanvas/models/roomShape';
+import productsData from '../data/products.json';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
   objectSelect: [type: 'pillar' | 'shelf' | null, key: number | null];
   showToast: [message: string];
   sectionDeleteRequest: [sectionKey: number, shelvesCount: number];
+  pillarMoveRequest: [pillarKey: number, totalShelvesCount: number];
+  sectionDeleted: []; // 섹션 삭제 완료 이벤트
 }>();
 
 const store = useRoomStore();
@@ -319,6 +280,53 @@ const createSection = (start: Pillar, end: Pillar): Section => ({
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
 const { cornerImages, shelfImages, wallImages } = useImageAssets();
+
+// 상품 목록 데이터 (Shelf 타입 사용)
+const shelfProducts = ref<Shelf[]>([]);
+
+// 컴포넌트 마운트 시 상품 데이터 로드
+onMounted(() => {
+  shelfProducts.value = productsData.shelves as Shelf[];
+  console.log('로드된 상품 개수:', shelfProducts.value.length);
+});
+
+// 선반 필터링: 추천(섹션 폭에 맞는) / 비추천 분리
+const filteredShelfProducts = computed(() => {
+  const sectionWidth = productPurchaseModal.value?.sectionWidth;
+  
+  console.log('🔍 필터링 디버그:', {
+    sectionWidth,
+    totalProducts: shelfProducts.value.length,
+    productWidths: shelfProducts.value.map(p => p.x),
+  });
+  
+  if (!sectionWidth) {
+    // 섹션 폭 정보 없으면 전체 상품 반환 (추천 없음)
+    return {
+      recommended: [],
+      others: shelfProducts.value,
+    };
+  }
+
+  const recommended: Shelf[] = [];
+  const others: Shelf[] = [];
+
+  shelfProducts.value.forEach((product) => {
+    if (product.x === sectionWidth) {
+      recommended.push(product);
+    } else {
+      others.push(product);
+    }
+  });
+
+  console.log('✅ 필터링 결과:', {
+    sectionWidth,
+    recommendedCount: recommended.length,
+    othersCount: others.length,
+  });
+
+  return { recommended, others };
+});
 
 // 기둥/선반 드래그 상태
 const dragState = ref<DragState>({
@@ -364,22 +372,42 @@ useCursorUpdater(canvasRef, scaleInfo, activeFacePillars, activeFaceShelves, act
 const validatePillarPosition = computed(() => createPillarPositionValidator(roomState.value));
 const validateShelfPosition = computed(() => createShelfPositionValidator(activeFacePillars.value));
 
+/**
+ * 특정 기둥을 공유하는 섹션들을 찾습니다.
+ */
+const getSectionsWithPillar = (pillarKey: number): Section[] => {
+  return activeFaceSections.value.filter(
+    (s) => s.startPillarKey === pillarKey || s.endPillarKey === pillarKey
+  );
+};
+
+/**
+ * 특정 기둥을 공유하는 섹션들에 선반이 있는지 확인합니다.
+ */
+const hasShelvesInSectionsWithPillar = (pillarKey: number): boolean => {
+  const sectionsWithPillar = getSectionsWithPillar(pillarKey);
+  return sectionsWithPillar.some((s) => s.shelves.length > 0);
+};
+
+/**
+ * 특정 기둥을 공유하는 섹션들의 총 선반 개수를 계산합니다.
+ */
+const getTotalShelvesCountInSectionsWithPillar = (pillarKey: number): number => {
+  const sectionsWithPillar = getSectionsWithPillar(pillarKey);
+  return sectionsWithPillar.reduce((sum, s) => sum + s.shelves.length, 0);
+};
+
 // 상품 구매 모달 상태
 const productPurchaseModal = ref<{
   show: boolean;
   category: 'all' | 'shelf' | 'furniture' | 'item'; // 카테고리
   sectionKey?: number; // 선반 추가용
+  sectionWidth?: number; // 섹션 폭 (선반 필터링용)
   startPillarKey?: number;
   endPillarKey?: number;
   shelfKey?: number; // 소품 추가용
   x: number;
   y: number;
-} | null>(null);
-
-// 코너장 확인 모달 상태
-const cornerPillarModal = ref<{
-  show: boolean;
-  pillarKey: number;
 } | null>(null);
 
 // 기둥 스타일 선택 상태
@@ -402,10 +430,6 @@ const handleMouseDown = (e: MouseEvent) => {
 
   if (productPurchaseModal.value) {
     productPurchaseModal.value = null;
-    return;
-  }
-  if (cornerPillarModal.value) {
-    cornerPillarModal.value = null;
     return;
   }
 
@@ -494,6 +518,11 @@ const handleMouseDown = (e: MouseEvent) => {
           emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
         } else {
           store.removeSection(button.sectionKey);
+          // 섹션 삭제 후 스냅샷 캡처 (다음 프레임에서 실행하여 렌더링 완료 보장)
+          setTimeout(() => {
+            captureCurrentFaceSnapshot();
+            emit('sectionDeleted');
+          }, 50);
         }
         return;
       }
@@ -507,11 +536,16 @@ const handleMouseDown = (e: MouseEvent) => {
     for (const button of shelfButtons) {
       const distanceToShelfButton = Math.sqrt((x - button.x) ** 2 + (y - button.y) ** 2);
       if (distanceToShelfButton <= shelfButtonRadius) {
+        // 섹션 폭 계산 (선반 필터링용)
+        const section = sections.find((s) => s.sectionKey === button.sectionKey);
+        const sectionWidth = section?.x || 0;
+        
         // 상품 구매 모달 열기 (전체 카테고리, 선반 상품 표시)
         productPurchaseModal.value = {
           show: true,
           category: 'all',
           sectionKey: button.sectionKey,
+          sectionWidth, // 섹션 폭 추가
           startPillarKey: button.startPillarKey,
           endPillarKey: button.endPillarKey,
           x: button.x,
@@ -582,6 +616,13 @@ const handleMouseDown = (e: MouseEvent) => {
       y >= redRect.y &&
       y <= redRect.y + redRect.height
     ) {
+      // 기둥을 공유하는 두 섹션에 선반이 있는지 확인
+      if (hasShelvesInSectionsWithPillar(pillar.pillarKey)) {
+        const totalShelvesCount = getTotalShelvesCountInSectionsWithPillar(pillar.pillarKey);
+        emit('pillarMoveRequest', pillar.pillarKey, totalShelvesCount);
+        return;
+      }
+      
       dragState.value = {
         type: 'pillar',
         targetKey: pillar.pillarKey,
@@ -614,22 +655,38 @@ const handleMouseMove = (e: MouseEvent) => {
     const settings = store.settings.value;
     const snappedXMm = snapToGrid(newXMm, settings.gridSizeMm);
 
-    const MAX_OUTSIDE_MM = settings.maxPillarOutsideMm;
-    const minXMm = -MAX_OUTSIDE_MM;
-    const maxXMm = roomState.value.roomWidthMm + MAX_OUTSIDE_MM;
-
+    // 코너장 로직 제거: 기둥은 정면 벽(빨간 박스) 범위 밖으로 나갈 수 없음
+    const minXMm = 0;
+    const maxXMm = roomState.value.roomWidthMm;
     const clampedXMm = Math.max(minXMm, Math.min(maxXMm, snappedXMm));
 
-    let constrainedXMm = clampedXMm;
-    if (clampedXMm >= 0 && clampedXMm <= roomState.value.roomWidthMm) {
-      constrainedXMm = validatePillarPosition.value(dragState.value.targetKey, clampedXMm, activeFacePillars.value);
-    }
-
-    store.setActiveFacePillars(
-      activeFacePillars.value.map((p) =>
-        p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p
-      )
+    const constrainedXMm = validatePillarPosition.value(
+      dragState.value.targetKey,
+      clampedXMm,
+      activeFacePillars.value
     );
+
+    // 기둥 위치 업데이트
+    const updatedPillars = activeFacePillars.value.map((p) =>
+      p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p
+    );
+    store.setActiveFacePillars(updatedPillars);
+
+    // 섹션 폭 재계산: 이동한 기둥과 연결된 섹션들 업데이트
+    const updatedSections = activeFaceSections.value.map((section) => {
+      const startPillar = updatedPillars.find((p) => p.pillarKey === section.startPillarKey);
+      const endPillar = updatedPillars.find((p) => p.pillarKey === section.endPillarKey);
+      
+      if (startPillar && endPillar) {
+        return {
+          ...section,
+          x: endPillar.x - startPillar.x, // 섹션 폭 재계산
+        };
+      }
+      return section;
+    });
+    store.setActiveFaceSections(updatedSections);
+    
     return;
   }
 
@@ -674,31 +731,37 @@ const handleMouseMove = (e: MouseEvent) => {
 };
 
 /**
- * 드래그 종료 시 위치를 스냅하고 코너장 모달을 제어합니다.
+ * 드래그 종료 시 위치를 스냅합니다.
  */
 const handleMouseUp = () => {
   if (dragState.value.type === 'pillar' && dragState.value.targetKey != null && scaleInfo.value) {
     const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === dragState.value.targetKey);
     if (draggedPillar) {
-      const isOutsideRedRect = draggedPillar.x < 0 || draggedPillar.x > roomState.value.roomWidthMm;
+      const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
+      const settings = store.settings.value;
+      const snappedXMm = snapToGrid(clampedXMm, settings.gridSizeMm);
+      const constrainedXMm = validatePillarPosition.value(dragState.value.targetKey, snappedXMm, activeFacePillars.value);
 
-      if (isOutsideRedRect && !draggedPillar.cornerYn) {
-        cornerPillarModal.value = {
-          show: true,
-          pillarKey: draggedPillar.pillarKey,
-        };
-      } else {
-        const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
-        const settings = store.settings.value;
-        const snappedXMm = snapToGrid(clampedXMm, settings.gridSizeMm);
-        const constrainedXMm = validatePillarPosition.value(dragState.value.targetKey, snappedXMm, activeFacePillars.value);
+      // 기둥 위치 업데이트 (정렬 포함)
+      const updatedPillars = activeFacePillars.value
+        .map((p) => (p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p))
+        .sort((a, b) => a.x - b.x);
+      store.setActiveFacePillars(updatedPillars);
 
-        store.setActiveFacePillars(
-          activeFacePillars.value
-            .map((p) => (p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p))
-            .sort((a, b) => a.x - b.x)
-        );
-      }
+      // 섹션 폭 재계산: 이동한 기둥과 연결된 섹션들 업데이트
+      const updatedSections = activeFaceSections.value.map((section) => {
+        const startPillar = updatedPillars.find((p) => p.pillarKey === section.startPillarKey);
+        const endPillar = updatedPillars.find((p) => p.pillarKey === section.endPillarKey);
+        
+        if (startPillar && endPillar) {
+          return {
+            ...section,
+            x: endPillar.x - startPillar.x, // 섹션 폭 재계산
+          };
+        }
+        return section;
+      });
+      store.setActiveFaceSections(updatedSections);
     }
   }
 
@@ -747,11 +810,15 @@ const handleMouseLeave = () => {
   dragState.value = { type: null, targetKey: null };
 };
 
-// 상품 구매 모달에서 선반 타입 선택 핸들러
-/**
- * 상품 구매 모달에서 선택한 선반 유형을 실제 Shelf 객체로 생성합니다.
- */
-const handleShelfTypeSelectFromProductModal = (shelfType: 'normal' | 'hanger' | 'drawer') => {
+// 상품 이미지 가져오기 헬퍼 함수
+const getProductImage = (type: 'normal' | 'hanger' | 'drawer') => {
+  const images = shelfImages.value;
+  if (!images) return null;
+  return images[type];
+};
+
+// JSON 데이터에서 선택한 상품으로 선반 생성
+const handleProductSelectFromModal = (product: Shelf) => {
   if (!productPurchaseModal.value || !scaleInfo.value) return;
 
   const sectionKey = productPurchaseModal.value.sectionKey;
@@ -799,9 +866,9 @@ const handleShelfTypeSelectFromProductModal = (shelfType: 'normal' | 'hanger' | 
 
   const newShelf: Shelf = {
     shelfKey: createTempKey(),
-    prodKey: 0,
+    prodKey: product.prodKey,
     sectionKey,
-    type: shelfType,
+    type: product.type,
     x: shelfLength,
     y: newHeightMm,
     z: 0,
@@ -823,48 +890,7 @@ const handleShelfTypeSelectFromProductModal = (shelfType: 'normal' | 'hanger' | 
   store.setActiveFaceSections(updatedSections);
   
   productPurchaseModal.value = null;
-};
-
-
-// 코너장 확인 핸들러
-/**
- * 정면 벽 밖으로 나간 기둥을 코너장으로 고정할지 여부를 처리합니다.
- */
-const handleCornerPillarConfirm = (confirmed: boolean) => {
-  if (!cornerPillarModal.value || !scaleInfo.value) return;
-
-  const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === cornerPillarModal.value!.pillarKey);
-  if (!draggedPillar) {
-    cornerPillarModal.value = null;
-    return;
-  }
-
-  const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
-  const settings = store.settings.value;
-  const snappedXMm = snapToGrid(clampedXMm, settings.gridSizeMm);
-  const constrainedXMm = validatePillarPosition.value(
-    cornerPillarModal.value.pillarKey,
-    snappedXMm,
-    activeFacePillars.value
-  );
-
-  if (confirmed) {
-    store.setActiveFacePillars(
-      activeFacePillars.value
-        .map((p) =>
-          p.pillarKey === cornerPillarModal.value!.pillarKey ? { ...p, cornerYn: true, x: constrainedXMm } : p
-        )
-        .sort((a, b) => a.x - b.x)
-    );
-  } else {
-    store.setActiveFacePillars(
-      activeFacePillars.value
-        .map((p) => (p.pillarKey === cornerPillarModal.value!.pillarKey ? { ...p, x: constrainedXMm } : p))
-        .sort((a, b) => a.x - b.x)
-    );
-  }
-
-  cornerPillarModal.value = null;
+  emit('showToast', `${product.name} (${product.materialName}, ${product.x}mm)이(가) 추가되었습니다.`);
 };
 
 // 기둥 스타일 변경 핸들러
@@ -875,6 +901,60 @@ const handlePillarStyleChange = (style: 'RS' | 'CS' | 'DU') => {
   selectedPillarStyle.value = style;
   isPillarStyleMenuOpen.value = false;
   store.setPillarStyleAllFaces(style);
+};
+
+/**
+ * 현재 면의 스냅샷을 강제로 캡처합니다.
+ * 섹션 삭제 등으로 면이 변경되었을 때 호출됩니다.
+ */
+const captureCurrentFaceSnapshot = async () => {
+  if (!canvasRef.value || !scaleInfo.value) return;
+
+  try {
+    const currentFaceId = store.activeFaceId.value;
+    const currentFace = store.getFaceState(currentFaceId);
+    
+    // 빈 면인지 확인 (기둥, 섹션, 선반이 모두 없으면 빈 면)
+    const hasFurniture = currentFace.pillars.length > 0 || 
+                        currentFace.sections.length > 0;
+    
+    // 빈 면은 스냅샷 캡처하지 않음
+    if (!hasFurniture) {
+      console.log(`면 ${currentFaceId} 스냅샷 생략 (빈 면)`);
+      return;
+    }
+
+    const { calculateFaceContentHash } = await import('../modules/roomCanvas/models/roomFace');
+    const { captureFaceSnapshot } = await import('../utils/snapshot');
+    
+    // 현재 면의 콘텐츠 해시 계산
+    const currentHash = calculateFaceContentHash(currentFace);
+    
+    // 스냅샷 캡처
+    const snapshot = await captureFaceSnapshot(
+      canvasRef.value,
+      renderCanvas,
+      scaleInfo.value.redRect,
+      currentFace.face_x,
+      currentFace.face_y
+    );
+    
+    // 스토어에 스냅샷 저장
+    const snapshotData = {
+      imageDataUrl: snapshot.imageDataUrl,
+      imageElement: snapshot.imageElement,
+      sourceFaceX: snapshot.sourceFaceX,
+      sourceFaceY: snapshot.sourceFaceY,
+      contentHash: currentHash,
+    };
+    
+    // 현재 면의 스냅샷 업데이트
+    store.updateFaceSnapshot(currentFaceId, snapshotData);
+    
+    console.log(`면 ${currentFaceId} 스냅샷 강제 캡처 완료`);
+  } catch (error) {
+    console.error('스냅샷 강제 캡처 실패:', error);
+  }
 };
 
 /**
@@ -1001,11 +1081,16 @@ const roomSizeDisplayStyle = {
 // 화살표 버튼 컨테이너 스타일
 const arrowButtonsContainerStyle = computed<CSSProperties>(() => {
   if (!scaleInfo.value) return {};
-  const { blueRect } = scaleInfo.value;
+  const { blueRect, redRect } = scaleInfo.value;
+
+  // 화살표 버튼을 벽 높이(정면 빨간 박스 기준)의 세로 중앙에 위치시키기 위해
+  // 컨테이너의 top 값을 redRect 중앙 기준으로 계산합니다.
+  // 버튼 높이가 40px 이므로 중앙 정렬을 위해 20px 만큼 위로 보정합니다.
+  const centerY = redRect.y + redRect.height / 2 - 20;
+
   return {
     position: 'absolute' as const,
-    // 상단 쪽으로 올리기 (파란 박스 위에서 조금 아래)
-    top: `${blueRect.y + 40}px`,
+    top: `${centerY}px`,
     left: `${blueRect.x}px`,
     width: `${blueRect.width}px`,
     display: 'flex',
@@ -1126,8 +1211,8 @@ const categoryTitleStyle = {
 
 const shelfGridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: '20px',
+  gridTemplateColumns: 'repeat(3, 1fr)', // 한 줄에 3개씩 배치
+  gap: '16px',
   minHeight: '450px', // 그리드 최소 높이로 선반 카테고리와 동일한 높이 유지
 };
 
@@ -1138,6 +1223,24 @@ const shelfCardStyle = {
   cursor: 'pointer',
   transition: 'all 0.2s',
   backgroundColor: '#fff',
+};
+
+// 비활성 선반 카드 스타일 (폭이 맞지 않는 경우)
+const getDisabledShelfCardStyle = () => ({
+  ...shelfCardStyle,
+  opacity: 0.5,
+  filter: 'blur(1px) grayscale(20%)',
+  cursor: 'not-allowed',
+  pointerEvents: 'none' as const,
+  backgroundColor: '#fafafa',
+});
+
+// 기타 섹션 타이틀 스타일
+const othersSectionTitleStyle = {
+  fontSize: '16px',
+  fontWeight: '500',
+  color: '#666',
+  marginBottom: '16px',
 };
 
 const shelfImageAreaStyle = {
@@ -1269,44 +1372,6 @@ const modalCancelButtonStyle = {
   transition: 'all 0.2s',
 };
 
-const modalConfirmButtonStyle = {
-  padding: '10px 24px',
-  border: 'none',
-  borderRadius: '6px',
-  backgroundColor: '#007AFF',
-  color: '#fff',
-  fontSize: '14px',
-  cursor: 'pointer',
-  fontWeight: '500',
-  transition: 'all 0.2s',
-};
-
-const cornerPillarModalStyle = {
-  position: 'fixed' as const,
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  backgroundColor: '#fff',
-  borderRadius: '12px',
-  width: '400px',
-  padding: '24px',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-  zIndex: 1000,
-  display: 'flex',
-  flexDirection: 'column' as const,
-};
-
-const modalTextStyle = {
-  fontSize: '14px',
-  color: '#666',
-  marginBottom: '24px',
-};
-
-const modalButtonGroupStyle = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: '12px',
-};
 
 // 이벤트 핸들러
 const handlePillarStyleButtonEnter = (e: MouseEvent) => {
@@ -1349,13 +1414,7 @@ const handleModalButtonLeave = (e: MouseEvent) => {
   (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fff';
 };
 
-const handleModalConfirmButtonHover = (e: MouseEvent) => {
-  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#0056b3';
-};
-
-const handleModalConfirmButtonLeave = (e: MouseEvent) => {
-  (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#007AFF';
-};
+// 코너장 모달 제거로 인해 사용되지 않는 Confirm 버튼 스타일/핸들러는 삭제되었습니다.
 
 // 카테고리 항목 스타일 동적 생성
 const getCategoryItemStyle = (category: 'all' | 'shelf' | 'furniture' | 'item') => {
@@ -1388,5 +1447,10 @@ const handleModalApplyButtonHover = (e: MouseEvent) => {
 const handleModalApplyButtonLeave = (e: MouseEvent) => {
   (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#007AFF';
 };
+
+// 컴포넌트 메서드를 외부에 노출
+defineExpose({
+  captureCurrentFaceSnapshot,
+});
 </script>
 

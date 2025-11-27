@@ -44,7 +44,7 @@ export function addPillarToActiveFace(pillar: Pillar) {
  * 선반은 RoomCanvas.vue에서 직접 섹션에 추가됨
  * @deprecated 섹션 중심 구조에서는 더 이상 사용되지 않음
  */
-export function addShelfToActiveFace(shelf: Shelf) {
+export function addShelfToActiveFace(_shelf: Shelf) {
   console.warn('addShelfToActiveFace는 섹션 중심 구조에서 더 이상 사용되지 않습니다. 섹션에 직접 추가하세요.');
   // 섹션 중심 구조에서는 이 함수를 사용하지 않음
 }

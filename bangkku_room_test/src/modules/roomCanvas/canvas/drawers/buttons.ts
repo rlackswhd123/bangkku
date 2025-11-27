@@ -3,6 +3,10 @@ import { Pillar, ScaleInfo, Shelf, Section } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';
 import { useRoomStore } from '../../store';
 
+// 선반/소품 추가 버튼 공통 오프셋 설정
+const ITEM_ADD_BUTTON_OFFSET_MM = 220; // 선반 위 220mm
+const BUTTON_PAIR_HORIZONTAL_OFFSET_PX = 26; // 선반/소품 추가 버튼을 칸 중앙 기준 좌우로 배치
+
 export interface ShelfButtonPosition {
   x: number;
   y: number;
@@ -13,39 +17,54 @@ export interface ShelfButtonPosition {
 
 export function calculateShelfButtonPositions(
   pillars: Pillar[],
-  _shelves: Shelf[],
+  shelves: Shelf[],
   scaleInfo: ScaleInfo,
-  sections?: Section[]
+  sections: Section[] = []
 ): ShelfButtonPosition[] {
-  // 섹션이 있으면 섹션 기반으로 버튼 위치 계산
-  if (sections && sections.length > 0) {
-    const buttons: ShelfButtonPosition[] = [];
+  const buttons: ShelfButtonPosition[] = [];
+  const store = useRoomStore();
 
-    sections.forEach((section) => {
-      const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
-      const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
-      
-      if (!startPillar || !endPillar) return;
+  // 1) 섹션이 없는 경우: 기둥 쌍 기준으로 처음 선반 추가 버튼 표시
+  if (sections.length === 0) {
+    const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
+    if (sortedPillars.length < 2) return buttons;
+
+    const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
+    const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
+    const centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
+
+    for (let i = 0; i < sortedPillars.length - 1; i += 1) {
+      const startPillar = sortedPillars[i];
+      const endPillar = sortedPillars[i + 1];
 
       const centerXMm = (startPillar.x + endPillar.x) / 2;
       const centerXPx = mmToPxX(centerXMm, scaleInfo);
 
-      // 섹션 내 선반들 확인
-      const sectionShelves = section.shelves;
+      buttons.push({
+        x: centerXPx,
+        y: centerYPx,
+        startPillarKey: startPillar.pillarKey,
+        endPillarKey: endPillar.pillarKey,
+        sectionKey: 0,
+      });
+    }
 
-      let centerYPx: number;
-      const store = useRoomStore();
-      const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
-      if (sectionShelves.length === 0) {
-        const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
-        centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
-      } else {
-        const topmostShelf = sectionShelves.reduce((topmost, current) =>
-          current.y < topmost.y ? current : topmost
-        );
-        const buttonHeightMm = topmostShelf.y - shelfButtonDefaultOffsetMm;
-        centerYPx = mmToPxY(buttonHeightMm, scaleInfo);
-      }
+    return buttons;
+  }
+
+  // 2) 섹션은 있지만 아직 선반이 하나도 없는 경우: 섹션당 1개씩 가운데에 버튼 표시
+  if (shelves.length === 0) {
+    const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
+    const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
+    const centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
+
+    sections.forEach((section) => {
+      const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
+      const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
+      if (!startPillar || !endPillar) return;
+
+      const centerXMm = (startPillar.x + endPillar.x) / 2;
+      const centerXPx = mmToPxX(centerXMm, scaleInfo);
 
       buttons.push({
         x: centerXPx,
@@ -59,55 +78,83 @@ export function calculateShelfButtonPositions(
     return buttons;
   }
 
-  // 섹션이 없으면 기존 방식 (기둥 쌍 기반)
-  const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
-  if (sortedPillars.length < 2) return [];
+  // 3) 선반과 섹션이 모두 있는 경우
+  //    - 선반이 있는 섹션: 소품 버튼과 같은 높이에서, 칸 중앙 기준 왼쪽으로 약간 이동 (페어 버튼)
+  //    - 선반이 아직 없는 섹션: 2번 케이스처럼 섹션당 1개씩 가운데에 버튼 표시 (최초 선반 추가용)
+  const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
+  const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
+  const defaultCenterYPx = mmToPxY(defaultHeightMm, scaleInfo);
 
-  const buttons: ShelfButtonPosition[] = [];
+  // 섹션별 선반 그룹핑
+  const shelvesBySection = new Map<number, Shelf[]>();
+  shelves.forEach((shelf) => {
+    if (shelf.sectionKey == null) return;
+    const list = shelvesBySection.get(shelf.sectionKey) ?? [];
+    list.push(shelf);
+    shelvesBySection.set(shelf.sectionKey, list);
+  });
 
-  for (let i = 0; i < sortedPillars.length - 1; i += 1) {
-    const startPillar = sortedPillars[i];
-    const endPillar = sortedPillars[i + 1];
+  sections.forEach((section) => {
+    const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
+    if (!startPillar || !endPillar) return;
+
+    const sectionShelves = shelvesBySection.get(section.sectionKey) ?? [];
 
     const centerXMm = (startPillar.x + endPillar.x) / 2;
-    const centerXPx = mmToPxX(centerXMm, scaleInfo);
+    const baseCenterXPx = mmToPxX(centerXMm, scaleInfo);
 
-    const samePairShelves: Shelf[] = [];
-
-    let centerYPx: number;
-    const store = useRoomStore();
-    const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
-    if (samePairShelves.length === 0) {
-      const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
-      centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
-    } else {
-      const topmostShelf = samePairShelves.reduce((topmost, current) =>
-        current.y < topmost.y ? current : topmost
-      );
-      const buttonHeightMm = topmostShelf.y - shelfButtonDefaultOffsetMm;
-      centerYPx = mmToPxY(buttonHeightMm, scaleInfo);
+    if (sectionShelves.length === 0) {
+      // 해당 섹션에 아직 선반이 없으면, 섹션 가운데에 최초 선반 추가 버튼 1개
+      buttons.push({
+        x: baseCenterXPx,
+        y: defaultCenterYPx,
+        startPillarKey: startPillar.pillarKey,
+        endPillarKey: endPillar.pillarKey,
+        sectionKey: section.sectionKey,
+      });
+      return;
     }
 
-    buttons.push({
-      x: centerXPx,
-      y: centerYPx,
-      startPillarKey: startPillar.pillarKey,
-      endPillarKey: endPillar.pillarKey,
-      sectionKey: 0,
+    // 선반이 있는 섹션은 각 선반 위에 페어 버튼 형태로 배치
+    sectionShelves.forEach((shelf) => {
+      const buttonX = baseCenterXPx - BUTTON_PAIR_HORIZONTAL_OFFSET_PX;
+      const buttonHeightMm = shelf.y + ITEM_ADD_BUTTON_OFFSET_MM;
+      const buttonY = mmToPxY(buttonHeightMm, scaleInfo);
+
+      buttons.push({
+        x: buttonX,
+        y: buttonY,
+        startPillarKey: startPillar.pillarKey,
+        endPillarKey: endPillar.pillarKey,
+        sectionKey: section.sectionKey,
+      });
     });
-  }
+  });
 
   return buttons;
 }
 
 export function drawAddShelfButtons(ctx: CanvasRenderingContext2D, buttons: ShelfButtonPosition[]) {
-  const store = useRoomStore();
-  const radius = store.settings.value.buttonSizes.shelfAdd.radius;
+  const buttonWidth = 35;
+  const buttonHeight = 20;
+  const borderRadius = 4;
 
   buttons.forEach((button) => {
+    const btnX = button.x - buttonWidth / 2;
+    const btnY = button.y - buttonHeight / 2;
+
     ctx.fillStyle = '#E0E0E0';
     ctx.beginPath();
-    ctx.arc(button.x, button.y, radius, 0, Math.PI * 2);
+    ctx.moveTo(btnX + borderRadius, btnY);
+    ctx.lineTo(btnX + buttonWidth - borderRadius, btnY);
+    ctx.quadraticCurveTo(btnX + buttonWidth, btnY, btnX + buttonWidth, btnY + borderRadius);
+    ctx.lineTo(btnX + buttonWidth, btnY + buttonHeight - borderRadius);
+    ctx.quadraticCurveTo(btnX + buttonWidth, btnY + buttonHeight, btnX + buttonWidth - borderRadius, btnY + buttonHeight);
+    ctx.lineTo(btnX + borderRadius, btnY + buttonHeight);
+    ctx.quadraticCurveTo(btnX, btnY + buttonHeight, btnX, btnY + buttonHeight - borderRadius);
+    ctx.lineTo(btnX, btnY + borderRadius);
+    ctx.quadraticCurveTo(btnX, btnY, btnX + borderRadius, btnY);
     ctx.closePath();
     ctx.fill();
 
@@ -116,10 +163,10 @@ export function drawAddShelfButtons(ctx: CanvasRenderingContext2D, buttons: Shel
     ctx.stroke();
 
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('+', button.x, button.y);
+    ctx.fillText('+ 선반', button.x, button.y);
   });
 }
 
@@ -267,7 +314,6 @@ export function calculateItemAddButtonPositions(
   scaleInfo: ScaleInfo
 ): ItemAddButtonPosition[] {
   const buttons: ItemAddButtonPosition[] = [];
-  const ITEM_ADD_BUTTON_OFFSET_MM = 220; // 선반 위 220mm
 
   shelves.forEach((shelf) => {
     if (shelf.sectionKey == null) return;
@@ -281,14 +327,16 @@ export function calculateItemAddButtonPositions(
 
     // 섹션의 가운데 x 좌표
     const centerXMm = (startPillar.x + endPillar.x) / 2;
-    const centerXPx = mmToPxX(centerXMm, scaleInfo);
+    const baseCenterXPx = mmToPxX(centerXMm, scaleInfo);
 
     // 선반 위 150mm 위치
     const buttonHeightMm = shelf.y + ITEM_ADD_BUTTON_OFFSET_MM;
     const centerYPx = mmToPxY(buttonHeightMm, scaleInfo);
 
+    const buttonX = baseCenterXPx + BUTTON_PAIR_HORIZONTAL_OFFSET_PX;
+
     buttons.push({
-      x: centerXPx,
+      x: buttonX,
       y: centerYPx,
       shelfKey: shelf.shelfKey,
       sectionKey: shelf.sectionKey,
@@ -299,7 +347,7 @@ export function calculateItemAddButtonPositions(
 }
 
 export function drawItemAddButtons(ctx: CanvasRenderingContext2D, buttons: ItemAddButtonPosition[]) {
-  const buttonWidth = 50;
+  const buttonWidth = 35;
   const buttonHeight = 20;
   const borderRadius = 4;
 
@@ -329,7 +377,7 @@ export function drawItemAddButtons(ctx: CanvasRenderingContext2D, buttons: ItemA
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('소품 추가', button.x, button.y);
+    ctx.fillText('+ 소품', button.x, button.y);
   });
 }
 

@@ -81,7 +81,7 @@ function drawImageStrip(
   srcH: number,
   quad: Quadrilateral
 ): void {
-  const { topLeft, topRight, bottomRight, bottomLeft } = quad;
+  const { topLeft, topRight, bottomLeft } = quad;
 
   ctx.save();
 

@@ -13,7 +13,6 @@ export function createPillarPositionValidator(room: RoomState) {
     const targetIndex = sortedPillars.findIndex((p) => p.pillarKey === targetPillarKey);
     if (targetIndex === -1) return newX;
 
-    const targetPillar = sortedPillars[targetIndex];
     const leftNeighbor = targetIndex > 0 ? sortedPillars[targetIndex - 1] : null;
     const rightNeighbor = targetIndex < sortedPillars.length - 1 ? sortedPillars[targetIndex + 1] : null;
 
@@ -140,7 +139,18 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
     // 거리 계산 기반 충돌 체크 및 위치 조정
     let adjustedHeightMm = newHeightMm;
     
-    // 드래그 방향이 있을 때만 충돌 체크 및 위치 조정 수행
+    // 경계선 제한값 계산 (항상 필요)
+    const boundaryLimits = getBoundaryLimits(targetShelfType, targetThickness);
+    const maxAllowedCenter = maxAllowedHeightMm - targetThickness / 2;
+    
+    // 경계선 체크 및 조정 (단일 선반일 때도 필요)
+    if (newHeightMm < boundaryLimits.min) {
+      adjustedHeightMm = boundaryLimits.min;
+    } else if (newHeightMm > maxAllowedCenter) {
+      adjustedHeightMm = maxAllowedCenter;
+    }
+    
+    // 드래그 방향이 있고 다른 선반이 있을 때만 충돌 체크 및 위치 조정 수행
     if (dragDirection && samePairShelves.length > 0) {
       const collisions: { shelf: Shelf | null; height: number; isBoundary: boolean }[] = [];
       
@@ -169,11 +179,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
         }
       }
       
-      // 경계선 충돌 체크 (Y축만 체크, 같은 기둥 쌍이므로 X축은 항상 겹침)
-      const boundaryLimits = getBoundaryLimits(targetShelfType, targetThickness);
-      const maxAllowedCenter = maxAllowedHeightMm - targetThickness / 2;
-      
-      // 하단 경계선 충돌
+      // 경계선 충돌 체크 (이미 위에서 조정했지만, 충돌 배열에 추가)
       if (newHeightMm < boundaryLimits.min) {
         collisions.push({
           shelf: null,
@@ -182,7 +188,6 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
         });
       }
       
-      // 상단 경계선 충돌
       if (newHeightMm > maxAllowedCenter) {
         collisions.push({
           shelf: null,
@@ -329,8 +334,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
     }
 
     // 경계 체크 (하단만 간격 규칙 포함, 상단은 경계선만 체크)
-    const boundaryLimits = getBoundaryLimits(targetShelfType, targetThickness);
-    const maxAllowedCenter = maxAllowedHeightMm - targetThickness / 2; // 상단: 경계선만 체크
+    // boundaryLimits와 maxAllowedCenter는 위에서 이미 선언됨
     constrainedHeight = Math.min(constrainedHeight, maxAllowedCenter);
     constrainedHeight = Math.max(constrainedHeight, boundaryLimits.min); // 하단: 간격 규칙 포함
 

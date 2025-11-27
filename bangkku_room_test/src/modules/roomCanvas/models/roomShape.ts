@@ -59,3 +59,37 @@ export function isFaceActiveInShape(shape: RoomShape, faceId: FaceId): boolean {
   return ROOM_SHAPE_CONFIGS[shape].activeFaces.includes(faceId);
 }
 
+/**
+ * 현재 면에서 이동 가능한 면 목록 반환
+ * @param shape - 방 형태
+ * @param currentFaceId - 현재 면 ID
+ * @returns 이동 가능한 면 ID 배열
+ */
+export function getNavigableFaces(shape: RoomShape, currentFaceId: FaceId): FaceId[] {
+  const activeFaces = ROOM_SHAPE_CONFIGS[shape].activeFaces;
+  
+  // 현재 면이 이동 가능한 면 목록에 없으면 빈 배열 반환
+  if (!activeFaces.includes(currentFaceId)) {
+    return [];
+  }
+  
+  // 현재 면을 제외한 이동 가능한 면들 반환
+  return activeFaces.filter(faceId => faceId !== currentFaceId);
+}
+
+/**
+ * 물리적 인접 면 계산 (1면의 왼쪽=4면, 오른쪽=2면)
+ * @param currentFaceId - 현재 면 ID
+ * @param direction - 'left' 또는 'right'
+ * @returns 인접 면 ID
+ */
+export function getPhysicalAdjacentFace(currentFaceId: FaceId, direction: 'left' | 'right'): FaceId {
+  if (direction === 'left') {
+    // 왼쪽: 1->4, 2->1, 3->2, 4->3
+    return (currentFaceId === 1 ? 4 : (currentFaceId - 1)) as FaceId;
+  } else {
+    // 오른쪽: 1->2, 2->3, 3->4, 4->1
+    return (currentFaceId === 4 ? 1 : (currentFaceId + 1)) as FaceId;
+  }
+}
+

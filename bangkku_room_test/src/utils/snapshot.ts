@@ -13,9 +13,9 @@ export interface SnapshotResult {
 }
 
 /**
- * Canvas의 redRect 영역만 캡처하여 Blob URL로 반환
- * @param canvas - 캡처할 Canvas 요소
- * @param render - 렌더링 함수 (버튼 제외 렌더링용)
+ * 오프스크린 캔버스에 렌더링하여 스냅샷 캡처 (깜빡임 없음)
+ * @param canvas - 원본 Canvas 요소 (크기 참조용)
+ * @param render - 렌더링 함수
  * @param redRect - 캡처할 영역 (redRect)
  * @param sourceFaceX - 원본 면의 폭 (mm)
  * @param sourceFaceY - 원본 면의 높이 (mm)
@@ -23,31 +23,44 @@ export interface SnapshotResult {
  */
 export async function captureFaceSnapshot(
   canvas: HTMLCanvasElement,
-  render: (options?: RenderOptions) => void,
+  render: (options?: RenderOptions, targetCanvas?: HTMLCanvasElement) => void,
   redRect: WallRect,
   sourceFaceX: number,
   sourceFaceY: number
 ): Promise<SnapshotResult> {
-  // 1. 버튼 제외하고 재렌더링
-  render({ excludeButtons: true, excludeSpacings: true });
+  // 1. 오프스크린 캔버스 생성 (화면에 보이지 않음)
+  const offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = canvas.width;
+  offscreenCanvas.height = canvas.height;
+
+  // 2. 오프스크린 캔버스에 투명 배경으로 렌더링 (화면 깜빡임 없음)
+  render(
+    { 
+      excludeButtons: true, 
+      excludeSpacings: true,
+      excludeWalls: true,
+      transparentBackground: true
+    },
+    offscreenCanvas
+  );
 
   // 잠시 대기하여 렌더링 완료 보장
   await new Promise(resolve => setTimeout(resolve, 10));
 
-  // 2. Canvas에서 redRect 영역만 추출
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('Canvas context를 가져올 수 없습니다.');
+  // 3. 오프스크린 캔버스에서 redRect 영역만 추출
+  const offscreenCtx = offscreenCanvas.getContext('2d');
+  if (!offscreenCtx) {
+    throw new Error('Offscreen canvas context를 가져올 수 없습니다.');
   }
 
-  const imageData = ctx.getImageData(
+  const imageData = offscreenCtx.getImageData(
     Math.floor(redRect.x),
     Math.floor(redRect.y),
     Math.floor(redRect.width),
     Math.floor(redRect.height)
   );
 
-  // 3. 새 Canvas에 복사
+  // 4. 최종 스냅샷 캔버스에 복사
   const snapshotCanvas = document.createElement('canvas');
   snapshotCanvas.width = Math.floor(redRect.width);
   snapshotCanvas.height = Math.floor(redRect.height);
@@ -59,7 +72,7 @@ export async function captureFaceSnapshot(
 
   snapshotCtx.putImageData(imageData, 0, 0);
 
-  // 4. Blob으로 변환
+  // 5. Blob으로 변환
   const blob = await new Promise<Blob>((resolve, reject) => {
     snapshotCanvas.toBlob((blob) => {
       if (blob) {
@@ -70,10 +83,10 @@ export async function captureFaceSnapshot(
     }, 'image/png');
   });
 
-  // 5. Object URL 생성
+  // 6. Object URL 생성
   const imageDataUrl = URL.createObjectURL(blob);
 
-  // 6. 이미지 객체 미리 로딩
+  // 7. 이미지 객체 미리 로딩
   const imageElement = new Image();
   await new Promise<void>((resolve, reject) => {
     imageElement.onload = () => resolve();
@@ -81,8 +94,7 @@ export async function captureFaceSnapshot(
     imageElement.src = imageDataUrl;
   });
 
-  // 7. 원래대로 재렌더링 (버튼 포함)
-  render({ excludeButtons: false });
+  // 8. 화면 캔버스는 그대로 유지 (재렌더링 불필요)
 
   return {
     imageDataUrl,

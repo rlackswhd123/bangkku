@@ -1,0 +1,218 @@
+// placement.ts: 바닥 가구 배치 가능 공간 계산 유틸리티
+
+import type { PlacementRect, FilteredPlacementRect, Section, Pillar } from '../types';
+
+/**
+ * 특정 벽면(face)의 모든 배치 가능한 공간(rect)을 계산합니다.
+ * - 단일 칸, 연속된 칸들의 조합, 빈 벽 영역까지 포함
+ * 
+ * @param faceId 벽면 ID (예: 'front', 'left', 'right')
+ * @param sections 해당 벽면의 칸(section) 배열
+ * @param pillars 해당 벽면의 기둥(pillar) 배열 (x 좌표 기준 정렬됨)
+ * @param faceWidthMm 벽면 전체 너비 (mm)
+ * @param roomHeightMm 방 높이 (mm)
+ * @returns 배치 가능한 모든 공간 배열
+ */
+export function calculatePlacementRects(
+  faceId: string,
+  sections: Section[],
+  pillars: Pillar[],
+  faceWidthMm: number,
+  roomHeightMm: number
+): PlacementRect[] {
+  const rects: PlacementRect[] = [];
+
+  // 기둥이 없는 경우: 빈 벽 전체
+  if (pillars.length === 0) {
+    rects.push({
+      x: 0,
+      y: 0, // 바닥 위치
+      width: faceWidthMm,
+      height: roomHeightMm,
+      faceId,
+      sectionIndices: [],
+      isEmptyWallIncluded: true,
+      lowestShelfY: undefined,
+      affectedShelves: [],
+    });
+    return rects;
+  }
+
+  // 1. 모든 섹션 조합 생성 (단일 칸, 연속된 칸들)
+  for (let startIdx = 0; startIdx < sections.length; startIdx++) {
+    for (let endIdx = startIdx; endIdx < sections.length; endIdx++) {
+      const combinedSections = sections.slice(startIdx, endIdx + 1);
+      const sectionIndices = Array.from({ length: endIdx - startIdx + 1 }, (_, i) => startIdx + i);
+
+      // 시작 x: 첫 번째 칸의 시작 기둥 x
+      const startPillar = pillars.find(p => p.pillarKey === combinedSections[0].startPillarKey);
+      // 끝 x: 마지막 칸의 끝 기둥 x
+      const endPillar = pillars.find(p => p.pillarKey === combinedSections[combinedSections.length - 1].endPillarKey);
+
+      if (!startPillar || !endPillar) continue;
+
+      const rectX = startPillar.x;
+      const rectWidth = endPillar.x - startPillar.x;
+
+      // 모든 칸의 선반들 중 가장 낮은 y 위치 찾기
+      const allShelves = combinedSections.flatMap(s => s.shelves);
+      const lowestShelfY = allShelves.length > 0
+        ? Math.min(...allShelves.map(shelf => shelf.y))
+        : undefined;
+
+      const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
+      rects.push({
+        x: rectX,
+        y: 0, // 바닥 위치
+        width: rectWidth,
+        height: rectHeight,
+        faceId,
+        sectionIndices,
+        isEmptyWallIncluded: false,
+        lowestShelfY,
+        affectedShelves: allShelves.map(s => s.shelfKey),
+      });
+    }
+  }
+
+  // 2. 빈 벽 영역 처리
+  const lastPillar = pillars[pillars.length - 1];
+  const emptyWallWidth = faceWidthMm - lastPillar.x;
+
+  if (emptyWallWidth > 0) {
+    // 2-1. 빈 벽 영역 단독
+    rects.push({
+      x: lastPillar.x,
+      y: 0,
+      width: emptyWallWidth,
+      height: roomHeightMm, // 선반 없으므로 전체 높이
+      faceId,
+      sectionIndices: [],
+      isEmptyWallIncluded: true,
+      lowestShelfY: undefined,
+      affectedShelves: [],
+    });
+
+    // 2-2. 각 칸 조합 + 빈 벽 영역
+    for (let startIdx = 0; startIdx < sections.length; startIdx++) {
+      for (let endIdx = startIdx; endIdx < sections.length; endIdx++) {
+        const combinedSections = sections.slice(startIdx, endIdx + 1);
+        const sectionIndices = Array.from({ length: endIdx - startIdx + 1 }, (_, i) => startIdx + i);
+
+        // 시작 x: 첫 번째 칸의 시작 기둥 x
+        const startPillar = pillars.find(p => p.pillarKey === combinedSections[0].startPillarKey);
+        
+        if (!startPillar) continue;
+
+        const rectX = startPillar.x;
+        const rectWidth = faceWidthMm - startPillar.x;
+
+        // 칸들의 선반들 중 가장 낮은 y 위치 (빈 벽은 선반 없으므로 고려 안함)
+        const allShelves = combinedSections.flatMap(s => s.shelves);
+        const lowestShelfY = allShelves.length > 0
+          ? Math.min(...allShelves.map(shelf => shelf.y))
+          : undefined;
+
+        // 빈 벽은 선반이 없지만, 칸의 선반이 높이를 제약함
+        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
+        rects.push({
+          x: rectX,
+          y: 0,
+          width: rectWidth,
+          height: rectHeight,
+          faceId,
+          sectionIndices,
+          isEmptyWallIncluded: true,
+          lowestShelfY,
+          affectedShelves: allShelves.map(s => s.shelfKey),
+        });
+      }
+    }
+  }
+
+  return rects;
+}
+
+/**
+ * 특정 가구 크기에 맞는 배치 가능한 공간만 필터링합니다.
+ * 
+ * @param placementRects 모든 배치 가능 공간 배열
+ * @param furnitureWidthMm 가구 가로 크기 (mm)
+ * @param furnitureHeightMm 가구 세로 크기 (mm)
+ * @returns 가구가 배치 가능한 공간 배열
+ */
+export function filterPlacementRectsByFurniture(
+  placementRects: PlacementRect[],
+  furnitureWidthMm: number,
+  furnitureHeightMm: number
+): FilteredPlacementRect[] {
+  return placementRects
+    .map(rect => {
+      const canFit = rect.width >= furnitureWidthMm && rect.height >= furnitureHeightMm;
+      const remainingWidth = rect.width - furnitureWidthMm;
+      const remainingHeight = rect.height - furnitureHeightMm;
+
+      return {
+        ...rect,
+        furnitureWidth: furnitureWidthMm,
+        furnitureHeight: furnitureHeightMm,
+        canFit,
+        remainingWidth: Math.max(0, remainingWidth),
+        remainingHeight: Math.max(0, remainingHeight),
+      };
+    })
+    .filter(rect => rect.canFit);
+}
+
+/**
+ * 배치 가능한 공간을 너비 기준으로 정렬합니다.
+ * 
+ * @param rects 배치 가능 공간 배열
+ * @param descending true면 내림차순, false면 오름차순 (기본값: true)
+ * @returns 정렬된 배치 가능 공간 배열
+ */
+export function sortPlacementRectsByWidth<T extends PlacementRect>(
+  rects: T[],
+  descending: boolean = true
+): T[] {
+  return [...rects].sort((a, b) => 
+    descending ? b.width - a.width : a.width - b.width
+  );
+}
+
+/**
+ * 배치 가능한 공간을 높이 기준으로 정렬합니다.
+ * 
+ * @param rects 배치 가능 공간 배열
+ * @param descending true면 내림차순, false면 오름차순 (기본값: true)
+ * @returns 정렬된 배치 가능 공간 배열
+ */
+export function sortPlacementRectsByHeight<T extends PlacementRect>(
+  rects: T[],
+  descending: boolean = true
+): T[] {
+  return [...rects].sort((a, b) => 
+    descending ? b.height - a.height : a.height - b.height
+  );
+}
+
+/**
+ * 배치 가능한 공간을 면적 기준으로 정렬합니다.
+ * 
+ * @param rects 배치 가능 공간 배열
+ * @param descending true면 내림차순, false면 오름차순 (기본값: true)
+ * @returns 정렬된 배치 가능 공간 배열
+ */
+export function sortPlacementRectsByArea<T extends PlacementRect>(
+  rects: T[],
+  descending: boolean = true
+): T[] {
+  return [...rects].sort((a, b) => {
+    const areaA = a.width * a.height;
+    const areaB = b.width * b.height;
+    return descending ? areaB - areaA : areaA - areaB;
+  });
+}
+

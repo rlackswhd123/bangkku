@@ -37,6 +37,15 @@
 
     <!-- 우측: 저장/불러오기/설정 버튼 -->
     <div :style="rightSectionStyle">
+      <!-- 상품 구매 버튼 -->
+      <button
+        @click="handleProductPurchaseClick"
+        :style="productPurchaseButtonStyle"
+        @mouseenter="handleButtonHover"
+        @mouseleave="handleButtonLeave"
+      >
+        가구 구매
+      </button>
       <!-- 저장 버튼 -->
       <button
         @click="handleSaveClick"
@@ -79,6 +88,7 @@ const emit = defineEmits<{
   settings: [];
   save: [];
   load: [];
+  productPurchase: [];
 }>();
 
 const store = useRoomStore();
@@ -119,6 +129,10 @@ const handleSaveClick = () => {
 
 const handleLoadClick = () => {
   emit('load');
+};
+
+const handleProductPurchaseClick = () => {
+  emit('productPurchase');
 };
 
 // 탭 스타일 계산
@@ -209,7 +223,8 @@ const roomShapeStyle = {
 };
 
 const tabsContainerStyle = {
-  display: 'flex',
+  // 면(1~4면) 탭 버튼은 기능은 유지하되 화면에는 표시하지 않기 위해 숨김 처리
+  display: 'none',
   gap: '8px',
   backgroundColor: '#f5f5f5',
   padding: '4px',
@@ -285,6 +300,18 @@ const settingsButtonStyle = {
   fontWeight: '600',
   color: '#fff',
   backgroundColor: '#007AFF',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s',
+};
+
+const productPurchaseButtonStyle = {
+  padding: '8px 16px',
+  fontSize: '13px',
+  fontWeight: '600',
+  color: '#fff',
+  backgroundColor: '#9C27B0',
   border: 'none',
   borderRadius: '6px',
   cursor: 'pointer',

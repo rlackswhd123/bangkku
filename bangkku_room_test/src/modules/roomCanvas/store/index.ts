@@ -401,6 +401,38 @@ export function useRoomStore() {
     globalSettings.value = DEFAULT_GLOBAL_SETTINGS;
   };
 
+  /**
+   * 특정 면의 스냅샷을 업데이트합니다.
+   * 섹션 삭제 등으로 면이 변경되었을 때 호출됩니다.
+   */
+  const updateFaceSnapshot = (
+    faceId: FaceId,
+    snapshotData: {
+      imageDataUrl: string;
+      imageElement: HTMLImageElement;
+      sourceFaceX: number;
+      sourceFaceY: number;
+      contentHash?: string;
+    }
+  ) => {
+    const face = roomState.value.faces[faceId];
+    if (!face) return;
+
+    const { imageDataUrl, imageElement, sourceFaceX, sourceFaceY, contentHash } = snapshotData;
+    
+    face.projectedSnapshot = {
+      imageDataUrl,
+      imageElement,
+      sourceFaceId: faceId,
+      sourceFaceX,
+      sourceFaceY,
+      timestamp: Date.now(),
+      contentHash,
+    };
+    
+    console.log(`면 ${faceId} 스냅샷 업데이트 완료`);
+  };
+
   return {
     // Getters
     state: readonly(state),
@@ -433,6 +465,7 @@ export function useRoomStore() {
     resetRoom,
     loadRoomState,
     getFaceState,
+    updateFaceSnapshot,
     updateGlobalSettings,
     resetGlobalSettings,
   };

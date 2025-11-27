@@ -6,7 +6,15 @@ import { useRoomStore } from '../store';
 import { FaceId } from '../models/roomShape';
 import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
-import { drawAddPillarButton, drawAddShelfButtons, calculateShelfButtonPositions, drawSectionDeleteButtons, calculateSectionDeleteButtonPositions, drawItemAddButtons, calculateItemAddButtonPositions } from '../canvas/drawers/buttons';
+import {
+  drawAddPillarButton,
+  drawAddShelfButtons,
+  calculateShelfButtonPositions,
+  drawSectionDeleteButtons,
+  calculateSectionDeleteButtonPositions,
+  drawItemAddButtons,
+  calculateItemAddButtonPositions,
+} from '../canvas/drawers/buttons';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
@@ -34,6 +42,8 @@ interface UseRoomCanvasRendererParams {
 export interface RenderOptions {
   excludeButtons?: boolean;  // UI 버튼 제외 여부
   excludeSpacings?: boolean; // 간격 표시 제외 여부
+  excludeWalls?: boolean;    // 벽 배경 이미지 제외 여부
+  transparentBackground?: boolean; // 투명 배경 사용 여부
 }
 
 export function useRoomCanvasRenderer({
@@ -74,50 +84,72 @@ export function useRoomCanvasRenderer({
 
   /**
    * 방/기둥/선반/보조요소를 순서대로 그려주는 메인 렌더 루프입니다.
+   * @param options - 렌더링 옵션
+   * @param targetCanvas - 렌더링할 대상 캔버스 (기본값: 메인 캔버스)
    */
-  const render = (options: RenderOptions = {}) => {
-    const { excludeButtons = false, excludeSpacings = false } = options;
+  const render = (options: RenderOptions = {}, targetCanvas?: HTMLCanvasElement) => {
+    const { 
+      excludeButtons = false, 
+      excludeSpacings = false,
+      excludeWalls = false,
+      transparentBackground = false
+    } = options;
     
-    const canvas = canvasRef.value;
+    // 타겟 캔버스가 지정되지 않으면 메인 캔버스 사용
+    const canvas = targetCanvas || canvasRef.value;
     const container = containerRef.value;
     if (!canvas || !container) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const store = useRoomStore();
     const currentRoom = unref(room);
     const currentPillars = unref(pillars);
     const currentShelves = unref(shelves);
     const currentSections = unref(sections);
     const currentDragState = unref(dragState);
 
+    // 오프스크린 캔버스인 경우 메인 캔버스 크기 사용, 아니면 컨테이너 크기 사용
+    if (targetCanvas) {
+      // 오프스크린 캔버스: 메인 캔버스와 동일한 크기 사용 (이미 설정됨)
+    } else {
+      // 메인 캔버스: 컨테이너 크기에 맞춤
     const rect = container.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
+    }
 
     const currentScaleInfo = updateScaleInfo(canvas);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 투명 배경이 아닌 경우에만 흰색 배경 그리기
+    if (!transparentBackground) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     // 1. 스켈레톤 그리기 (파란/빨간 박스)
     // drawSkeletonRoom(ctx, currentScaleInfo, currentRoom);
     
-    // 2. 정면 벽 배경 이미지 (가장 뒤)
+    // 2. 벽 배경 이미지 (스냅샷 캡처 시 제외 가능)
+    if (!excludeWalls) {
+      // 정면 벽 배경 이미지 (가장 뒤)
     drawFrontWall(ctx, currentScaleInfo, wallImages.value);
     
-    // 3. 좌우 벽 배경 이미지 (정면 벽보다 앞)
+      // 좌우 벽 배경 이미지 (정면 벽보다 앞)
     drawLeftWall(ctx, currentScaleInfo, wallImages.value);
     drawRightWall(ctx, currentScaleInfo, wallImages.value);
+    }
 
-    // 4. 투영된 스냅샷 이미지 (파란 벽 위에 그리기)
-    const store = useRoomStore();
+    // 4. 투영된 스냅샷 이미지 및 라벨 (스냅샷 캡처 시 제외 가능)
+    if (!excludeWalls) {
     const currentActiveFaceId = store.activeFaceId.value;
     const availableFaces = store.availableFaces.value;
     const currentIndex = availableFaces.indexOf(currentActiveFaceId);
     
-    if (currentIndex !== -1) {
+    if (currentIndex !== -1 && availableFaces.length > 0) {
       // 왼쪽 파란 벽: 오른쪽 인접 면 (다음 면)의 스냅샷
       const rightAdjacentFaceId = availableFaces[(currentIndex + 1) % availableFaces.length] as FaceId;
       const rightAdjacentFace = store.getFaceState(rightAdjacentFaceId);
@@ -138,6 +170,42 @@ export function useRoomCanvasRenderer({
           leftAdjacentFace.projectedSnapshot,
           currentScaleInfo.rightWallQuad
         );
+      }
+
+      // 4-1. 각 벽 상단에 faceId 라벨 표시
+      const { blueRect, redRect } = currentScaleInfo;
+      const verticalPadding = store.settings.value.wallVerticalPaddingPx;
+
+      // 라벨 공통 스타일 설정
+      const prevFillStyle = ctx.fillStyle;
+      const prevFont = ctx.font;
+      const prevTextAlign = ctx.textAlign;
+      const prevTextBaseline = ctx.textBaseline;
+
+      ctx.fillStyle = '#222222';
+      ctx.font = 'bold 29px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+
+      const labelY = redRect.y - verticalPadding + 40;
+
+      // 왼쪽 파란 벽 상단 (오른쪽 인접 면)
+      const leftWallCenterX = (blueRect.x + redRect.x) / 2;
+      ctx.fillText(`${rightAdjacentFaceId}면`, leftWallCenterX, labelY);
+
+      // 정면 빨간 벽 상단 (현재 활성 면)
+      const frontWallCenterX = redRect.x + redRect.width / 2;
+      ctx.fillText(`${currentActiveFaceId}면`, frontWallCenterX, labelY);
+
+      // 오른쪽 파란 벽 상단 (왼쪽 인접 면)
+      const rightWallCenterX = (redRect.x + redRect.width + blueRect.x + blueRect.width) / 2;
+      ctx.fillText(`${leftAdjacentFaceId}면`, rightWallCenterX, labelY);
+
+      // 컨텍스트 복원
+      ctx.fillStyle = prevFillStyle;
+      ctx.font = prevFont;
+      ctx.textAlign = prevTextAlign;
+      ctx.textBaseline = prevTextBaseline;
       }
     }
 
@@ -342,6 +410,7 @@ export function useCursorUpdater(
         }
       }
     }
+
 
     for (const shelf of currentShelves) {
       const section = shelf.sectionKey != null ? currentSections.find((s) => s.sectionKey === shelf.sectionKey) : null;
