@@ -89,6 +89,7 @@ export interface DragState {
   originalHeightMm?: number;  // 선반 원래 높이 (mm)
   ghostXMm?: number;      // 가구 드래그 시 고스트 x (mm)
   lastValidXMm?: number;  // 가구 드래그 시 마지막 유효 x (mm)
+  offsetXMm?: number;     // 가구 드래그 시 마우스 기준 offset (mm)
 }
 
 // 방 크기 제약

@@ -408,6 +408,7 @@ const handleMouseDown = (e: MouseEvent) => {
   // 가구 드래그 시작 체크 (바닥 가구)
   for (const furniture of furnitures) {
     if (isPointInsideFurniture(furniture, x, y)) {
+      const furnCenterOffsetMm = pxToMmX(x, scaleInfo.value) - furniture.xMm;
       dragState.value = {
         type: 'furniture',
         targetKey: furniture.id,
@@ -415,6 +416,7 @@ const handleMouseDown = (e: MouseEvent) => {
         originalX: furniture.xMm,
         ghostXMm: furniture.xMm,
         lastValidXMm: furniture.xMm,
+        offsetXMm: furnCenterOffsetMm,
       };
       return;
     }
@@ -625,7 +627,8 @@ const handleMouseMove = (e: MouseEvent) => {
   if (dragState.value.type === 'furniture' && dragState.value.targetKey != null) {
     const targetFurniture = activeFaceFurnitures.value.find((f) => f.id === dragState.value.targetKey);
     if (targetFurniture) {
-      const newXMm = pxToMmX(x, scaleInfo.value);
+      const offsetXMm = dragState.value.offsetXMm ?? 0;
+      const newXMm = pxToMmX(x, scaleInfo.value) - offsetXMm;
       const settings = store.settings.value;
       const snappedXMm = snapToGrid(newXMm, settings.gridSizeMm);
       const maxXMm = activeFaceMetrics.value.face_x - targetFurniture.widthMm;
