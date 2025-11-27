@@ -752,7 +752,6 @@ const getProductImage = (type: 'normal' | 'hanger' | 'drawer') => {
 // JSON 데이터에서 선택한 상품으로 선반 생성
 const handleFurnitureSelectFromModal = (product: { prodKey: number; name: string; widthMm: number; heightMm: number }) => {
   store.setActiveFurniture(product);
-  emit('showToast', `${product.name} 가 선택되었습니다.`);
 };
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {

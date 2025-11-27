@@ -447,7 +447,7 @@ export function useRoomStore() {
     );
 
     const targetRect = placementRects
-      .filter(rect => rect.width >= furniture.widthMm)
+      .filter(rect => rect.width >= furniture.widthMm && rect.height >= furniture.heightMm)
       .sort((a, b) => a.x - b.x)[0];
 
     if (!targetRect) {
@@ -461,12 +461,15 @@ export function useRoomStore() {
       targetRect.x + targetRect.width - furniture.widthMm
     );
 
+    // 높이 제약: rect 높이를 넘지 않도록 바닥에 붙여 배치
+    const yMm = 0; // 바닥 기준 배치 (현재 설계)
+
     const newFurniture: PlacedFurniture = {
       ...furniture,
       id: createFurnitureId(),
       faceKey: face.faceKey,
       xMm: clampedX,
-      yMm: 0,
+      yMm,
     };
 
     face.furnitures = [...face.furnitures, newFurniture];
@@ -479,7 +482,8 @@ export function useRoomStore() {
   const canPlaceHereOnFace = (
     faceKey: FaceId,
     furnitureWidthMm: number,
-    candidateXMm: number
+    candidateXMm: number,
+    furnitureHeightMm?: number
   ): boolean => {
     const face = roomState.value.faces[faceKey];
     if (!face) return false;
@@ -493,7 +497,11 @@ export function useRoomStore() {
     );
 
     const candidateEnd = candidateXMm + furnitureWidthMm;
-    return placementRects.some(rect => candidateXMm >= rect.x && candidateEnd <= rect.x + rect.width);
+    return placementRects.some(rect => {
+      const fitsWidth = candidateXMm >= rect.x && candidateEnd <= rect.x + rect.width;
+      const fitsHeight = furnitureHeightMm === undefined ? true : furnitureHeightMm <= rect.height;
+      return fitsWidth && fitsHeight;
+    });
   };
 
   /**
