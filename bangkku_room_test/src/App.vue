@@ -31,8 +31,10 @@
         :selected-key="selectedKey"
         :pillar="selectedPillar"
         :shelf="selectedShelf"
+        :furniture="selectedFurniture"
         :pillars="uiPillars"
         :sections="uiSections"
+        :furnitures="uiFurnitures"
         @close="handleClose"
         @delete="handleDelete"
       />
@@ -205,7 +207,7 @@ const isShapeSelectorOpen = ref(false);
 const isGlobalSettingsModalOpen = ref(false);
 const roomCanvasRef = ref<InstanceType<typeof RoomCanvas> | null>(null);
 
-const selectedType = ref<'pillar' | 'shelf' | null>(null);
+const selectedType = ref<'pillar' | 'shelf' | 'furniture' | null>(null);
 const selectedKey = ref<number | null>(null);
 
 const toastMessage = ref<string>('');
@@ -236,6 +238,7 @@ const handleProductPurchase = () => {
 // ObjectInfoPanel에 전달할 가변 배열 뷰 (스토어는 readonly이므로 UI 용도로만 타입 캐스팅)
 const uiPillars = computed<Pillar[]>(() => store.activeFacePillars.value as unknown as Pillar[]);
 const uiSections = computed<Section[]>(() => store.activeFaceSections.value as unknown as Section[]);
+const uiFurnitures = computed(() => store.activeFaceFurnitures.value);
 
 const selectedPillar = computed(() => {
   return selectedType.value === 'pillar' && selectedKey.value != null
@@ -249,13 +252,19 @@ const selectedShelf = computed(() => {
     : null;
 });
 
+const selectedFurniture = computed(() => {
+  return selectedType.value === 'furniture' && selectedKey.value != null
+    ? store.activeFaceFurnitures.value.find((f) => f.id === selectedKey.value) || null
+    : null;
+});
+
 /** 캔버스에서 전달된 최신 스케일 정보를 저장해 UI 전반에서 활용합니다. */
 const setScaleInfo = (info: ScaleInfo) => {
   scaleInfo.value = info;
 };
 
 /** 캔버스에서 전달된 선택 대상을 패널과 모달이 참조할 수 있게 저장합니다. */
-const handleObjectSelect = (type: 'pillar' | 'shelf' | null, key: number | null) => {
+const handleObjectSelect = (type: 'pillar' | 'shelf' | 'furniture' | null, key: number | null) => {
   selectedType.value = type;
   selectedKey.value = key;
 };
@@ -272,6 +281,10 @@ const handleDelete = () => {
       show: true,
       shelfKey: selectedKey.value,
     };
+  } else if (selectedType.value === 'furniture' && selectedKey.value != null) {
+    store.removeActiveFaceFurniture(selectedKey.value);
+    selectedType.value = null;
+    selectedKey.value = null;
   }
 };
 
@@ -522,4 +535,3 @@ const modalConfirmButtonStyle = {
   transition: 'all 0.2s',
 };
 </script>
-

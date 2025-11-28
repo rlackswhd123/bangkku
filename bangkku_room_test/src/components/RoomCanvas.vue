@@ -130,7 +130,7 @@ import ProductPurchaseModal from './modals/ProductPurchaseModal.vue';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
-  objectSelect: [type: 'pillar' | 'shelf' | null, key: number | null];
+  objectSelect: [type: 'pillar' | 'shelf' | 'furniture' | null, key: number | null];
   showToast: [message: string];
   sectionDeleteRequest: [sectionKey: number, shelvesCount: number];
   pillarMoveRequest: [pillarKey: number, totalShelvesCount: number];
@@ -418,6 +418,7 @@ const handleMouseDown = (e: MouseEvent) => {
         lastValidXMm: furniture.xMm,
         offsetXMm: furnCenterOffsetMm,
       };
+      emit('objectSelect', 'furniture', furniture.id);
       return;
     }
   }
@@ -616,6 +617,7 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   if (!scaleInfo.value) return;
 
+  emit('objectSelect', null, null);
   const canvas = canvasRef.value;
   if (!canvas) return;
 

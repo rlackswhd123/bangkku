@@ -29,7 +29,15 @@
     <!-- 제품명 -->
     <div :style="styles.nameSection">
       <h3 :style="styles.name">
-        {{ isPillar ? '기둥 (Column)' : isShelf ? '선반 (Shelf)' : '오브젝트를 선택하세요' }}
+        {{
+          isPillar
+            ? '기둥 (Column)'
+            : isShelf
+              ? '선반 (Shelf)'
+              : isFurniture
+                ? (props.furniture?.name || '가구')
+                : '오브젝트를 선택하세요'
+        }}
       </h3>
     </div>
 
@@ -71,6 +79,25 @@
       </div>
     </div>
 
+    <div v-if="isFurniture && furnitureInfo" :style="styles.infoSection">
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">이름:</span>
+        <span :style="styles.infoValue">{{ furnitureInfo.name }}</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">너비:</span>
+        <span :style="styles.infoValue">{{ furnitureInfo.widthMm }}mm</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">높이:</span>
+        <span :style="styles.infoValue">{{ furnitureInfo.heightMm }}mm</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">X 위치:</span>
+        <span :style="styles.infoValue">{{ furnitureInfo.xMm }}mm</span>
+      </div>
+    </div>
+
     <!-- 삭제 버튼 -->
     <div :style="styles.footer">
       <button
@@ -92,13 +119,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Pillar, Shelf } from '../types';
+import { PlacedFurniture } from '../modules/roomCanvas/models/furniture';
 
 interface Props {
-  selectedType: 'pillar' | 'shelf' | null;
+  selectedType: 'pillar' | 'shelf' | 'furniture' | null;
   selectedKey: number | null;
   pillar: Pillar | null;
   shelf: Shelf | null;
+  furniture: PlacedFurniture | null;
   pillars: readonly Pillar[];
+  furnitures: readonly PlacedFurniture[];
   sections?: ReadonlyArray<{ sectionKey: number; startPillarKey: number; endPillarKey: number } & { shelves: Shelf[] }>;
 }
 
@@ -147,14 +177,25 @@ onMounted(() => {
 
 const isPillar = computed(() => props.selectedType === 'pillar' && props.pillar);
 const isShelf = computed(() => props.selectedType === 'shelf' && props.shelf);
+const isFurniture = computed(() => props.selectedType === 'furniture' && props.furniture);
 const hasSelection = computed(
-  () => !!props.selectedType && props.selectedKey != null && (!!isPillar.value || !!isShelf.value)
+  () => !!props.selectedType && props.selectedKey != null && (isPillar.value || isShelf.value || isFurniture.value)
 );
 
 const shelfImage = computed(() => {
   if (!props.shelf) return null;
   const shelfType = props.shelf.type || 'normal';
   return shelfImages.value[shelfType];
+});
+
+const furnitureInfo = computed(() => {
+  if (!isFurniture.value || !props.furniture) return null;
+  return {
+    name: props.furniture.name,
+    widthMm: Math.round(props.furniture.widthMm),
+    heightMm: Math.round(props.furniture.heightMm),
+    xMm: Math.round(props.furniture.xMm),
+  };
 });
 
 // 선반 정보 계산
@@ -362,4 +403,3 @@ const styles: { [key: string]: Record<string, string> } = {
   },
 };
 </script>
-

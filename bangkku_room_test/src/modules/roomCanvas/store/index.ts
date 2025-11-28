@@ -387,6 +387,15 @@ export function useRoomStore() {
   };
 
   /**
+   * 현재 활성 면에서 특정 가구 삭제
+   */
+  const removeActiveFaceFurniture = (furnitureId: number) => {
+    const face = roomState.value.faces[roomState.value.activeFaceId];
+    if (!face) return;
+    face.furnitures = face.furnitures.filter((f) => f.id !== furnitureId);
+  };
+
+  /**
    * 섹션 추가
    */
   const addSection = (section: Section) => {
@@ -776,5 +785,6 @@ export function useRoomStore() {
     applyActiveFurnitureToCurrentFace,
     canPlaceHereOnFace,
     findNearestFurnitureSlotOnFace,
+    removeActiveFaceFurniture,
   };
 }
