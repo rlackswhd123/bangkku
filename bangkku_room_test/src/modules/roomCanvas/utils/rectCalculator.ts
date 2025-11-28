@@ -1,5 +1,5 @@
 // rectCalculator.ts: 가구 배치 가능 위치(Rect) 계산 로직
-import { Pillar, Section, Shelf, ScaleInfo, GlobalSettings, FURNITURE_DIMENSIONS, PILLAR_SHELF_CONSTRAINTS } from '../../../types';
+import { Pillar, Section, Shelf, ScaleInfo, GlobalSettings, FURNITURE_DIMENSIONS } from '../../../types';
 
 /**
  * 배치 가능한 Rect 정보

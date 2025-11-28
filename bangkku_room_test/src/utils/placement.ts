@@ -21,6 +21,8 @@ export function calculatePlacementRects(
   roomHeightMm: number
 ): PlacementRect[] {
   const rects: PlacementRect[] = [];
+  const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
+  const blockerPillars = sortedPillars.filter(p => (p.pillarStyle || 'RS') !== 'RS');
 
   // 기둥이 없는 경우: 빈 벽 전체
   if (pillars.length === 0) {
@@ -35,6 +37,45 @@ export function calculatePlacementRects(
       lowestShelfY: undefined,
       affectedShelves: [],
     });
+    return rects;
+  }
+
+  // 센터/듀얼 기둥이 있는 경우: 기둥 기준으로 구간을 나눠 Rect 생성
+  // 섹션 여부와 무관하게 기둥 경계로 자른다.
+  if (blockerPillars.length > 0) {
+    let startX = 0;
+    blockerPillars.forEach((pillar, idx) => {
+      const endX = pillar.x;
+      if (endX > startX) {
+        rects.push({
+          x: startX,
+          y: 0,
+          width: endX - startX,
+          height: roomHeightMm,
+          faceId,
+          sectionIndices: [], // 기둥 단위 분할이므로 섹션 조합 정보는 비움
+          isEmptyWallIncluded: true,
+          lowestShelfY: undefined,
+          affectedShelves: [],
+        });
+      }
+      startX = pillar.x;
+      // 마지막 기둥이면 끝까지
+      if (idx === blockerPillars.length - 1 && startX < faceWidthMm) {
+        rects.push({
+          x: startX,
+          y: 0,
+          width: faceWidthMm - startX,
+          height: roomHeightMm,
+          faceId,
+          sectionIndices: [],
+          isEmptyWallIncluded: true,
+          lowestShelfY: undefined,
+          affectedShelves: [],
+        });
+      }
+    });
+
     return rects;
   }
 
@@ -77,7 +118,7 @@ export function calculatePlacementRects(
   }
 
   // 2. 빈 벽 영역 처리
-  const lastPillar = pillars[pillars.length - 1];
+  const lastPillar = sortedPillars[sortedPillars.length - 1];
   const emptyWallWidth = faceWidthMm - lastPillar.x;
 
   if (emptyWallWidth > 0) {
@@ -215,4 +256,3 @@ export function sortPlacementRectsByArea<T extends PlacementRect>(
     return descending ? areaB - areaA : areaA - areaB;
   });
 }
-

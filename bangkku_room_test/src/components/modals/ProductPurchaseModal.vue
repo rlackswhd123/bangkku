@@ -129,15 +129,7 @@
             @mouseenter="handleModalButtonHover"
             @mouseleave="handleModalButtonLeave"
           >
-            취소
-          </button>
-          <button
-            @click="$emit('apply')"
-            :style="modalApplyButtonStyle"
-            @mouseenter="handleModalApplyButtonHover"
-            @mouseleave="handleModalApplyButtonLeave"
-          >
-            적용
+            닫기
           </button>
         </div>
       </div>
