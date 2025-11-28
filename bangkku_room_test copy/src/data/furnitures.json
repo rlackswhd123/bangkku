@@ -6,15 +6,15 @@
       "widthMm": 600,
       "heightMm": 2500,
       "price": 189000,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/drawer/슬림 수납장.png"
     },
     {
       "prodKey": 9002,
       "name": "와이드 서랍장",
-      "widthMm": 2400,
-      "heightMm": 500,
+      "widthMm": 2000,
+      "heightMm": 700,
       "price": 249000,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/drawer/와이드 수납장.png"
     },
     {
       "prodKey": 9003,
@@ -22,23 +22,23 @@
       "widthMm": 1200,
       "heightMm": 900,
       "price": 159000,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/drawer/중형 서랍장.png"
     },
     {
       "prodKey": 9004,
       "name": "높은 장식장",
       "widthMm": 1000,
-      "heightMm": 2000,
+      "heightMm": 1800,
       "price": 199000,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/drawer/높은 장식장.png"
     },
     {
       "prodKey": 9005,
       "name": "로우 보드",
       "widthMm": 1800,
-      "heightMm": 450,
+      "heightMm": 700,
       "price": 179000,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/drawer/낮은 수납장.png"
     }
   ]
 }

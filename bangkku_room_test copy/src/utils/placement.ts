@@ -21,6 +21,8 @@ export function calculatePlacementRects(
   roomHeightMm: number
 ): PlacementRect[] {
   const rects: PlacementRect[] = [];
+  const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
+  const blockerPillars = sortedPillars.filter(p => (p.pillarStyle || 'RS') !== 'RS');
 
   // 기둥이 없는 경우: 빈 벽 전체
   if (pillars.length === 0) {
@@ -35,6 +37,79 @@ export function calculatePlacementRects(
       lowestShelfY: undefined,
       affectedShelves: [],
     });
+    return rects;
+  }
+
+  // 센터/듀얼 기둥이 있는 경우: 기둥 기준으로 구간을 나눠 Rect 생성
+  // 섹션 여부와 무관하게 기둥 경계로 자른다.
+  if (blockerPillars.length > 0) {
+    const pillarXMap = new Map<number, number>();
+    sortedPillars.forEach(p => pillarXMap.set(p.pillarKey, p.x));
+
+    const getSectionSpan = (section: Section): { start: number; end: number } | null => {
+      const start = pillarXMap.get(section.startPillarKey);
+      const end = pillarXMap.get(section.endPillarKey);
+      if (start === undefined || end === undefined) return null;
+      return { start, end };
+    };
+
+    let startX = 0;
+    blockerPillars.forEach((pillar, idx) => {
+      const endX = pillar.x;
+      if (endX > startX) {
+        const segmentSections = sections
+          .map(s => ({ section: s, span: getSectionSpan(s) }))
+          .filter((s): s is { section: Section; span: { start: number; end: number } } =>
+            !!s.span && s.span.start >= startX && s.span.end <= endX
+          );
+
+        const segmentShelves = segmentSections.flatMap(({ section }) => section.shelves);
+        const lowestShelfY = segmentShelves.length > 0
+          ? Math.min(...segmentShelves.map(sh => sh.y))
+          : undefined;
+        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
+        rects.push({
+          x: startX,
+          y: 0,
+          width: endX - startX,
+          height: rectHeight,
+          faceId,
+          sectionIndices: [], // 기둥 단위 분할이므로 섹션 조합 정보는 비움
+          isEmptyWallIncluded: true,
+          lowestShelfY,
+          affectedShelves: segmentShelves.map(sh => sh.shelfKey),
+        });
+      }
+      startX = pillar.x;
+      // 마지막 기둥이면 끝까지
+      if (idx === blockerPillars.length - 1 && startX < faceWidthMm) {
+        const segmentSections = sections
+          .map(s => ({ section: s, span: getSectionSpan(s) }))
+          .filter((s): s is { section: Section; span: { start: number; end: number } } =>
+            !!s.span && s.span.start >= startX && s.span.end <= faceWidthMm
+          );
+
+        const segmentShelves = segmentSections.flatMap(({ section }) => section.shelves);
+        const lowestShelfY = segmentShelves.length > 0
+          ? Math.min(...segmentShelves.map(sh => sh.y))
+          : undefined;
+        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
+        rects.push({
+          x: startX,
+          y: 0,
+          width: faceWidthMm - startX,
+          height: rectHeight,
+          faceId,
+          sectionIndices: [],
+          isEmptyWallIncluded: true,
+          lowestShelfY,
+          affectedShelves: segmentShelves.map(sh => sh.shelfKey),
+        });
+      }
+    });
+
     return rects;
   }
 
@@ -77,7 +152,7 @@ export function calculatePlacementRects(
   }
 
   // 2. 빈 벽 영역 처리
-  const lastPillar = pillars[pillars.length - 1];
+  const lastPillar = sortedPillars[sortedPillars.length - 1];
   const emptyWallWidth = faceWidthMm - lastPillar.x;
 
   if (emptyWallWidth > 0) {
@@ -215,4 +290,3 @@ export function sortPlacementRectsByArea<T extends PlacementRect>(
     return descending ? areaB - areaA : areaA - areaB;
   });
 }
-

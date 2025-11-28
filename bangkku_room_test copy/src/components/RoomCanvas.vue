@@ -130,7 +130,7 @@ import ProductPurchaseModal from './modals/ProductPurchaseModal.vue';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
-  objectSelect: [type: 'pillar' | 'shelf' | null, key: number | null];
+  objectSelect: [type: 'pillar' | 'shelf' | 'furniture' | null, key: number | null];
   showToast: [message: string];
   sectionDeleteRequest: [sectionKey: number, shelvesCount: number];
   pillarMoveRequest: [pillarKey: number, totalShelvesCount: number];
@@ -418,6 +418,7 @@ const handleMouseDown = (e: MouseEvent) => {
         lastValidXMm: furniture.xMm,
         offsetXMm: furnCenterOffsetMm,
       };
+      emit('objectSelect', 'furniture', furniture.id);
       return;
     }
   }
@@ -831,6 +832,14 @@ const getProductImage = (type: 'normal' | 'hanger' | 'drawer') => {
 // JSON 데이터에서 선택한 상품으로 선반 생성
 const handleFurnitureSelectFromModal = (product: { prodKey: number; name: string; widthMm: number; heightMm: number }) => {
   store.setActiveFurniture(product);
+  const result = store.applyActiveFurnitureToCurrentFace();
+
+  if (result.success) {
+    emit('showToast', '가구를 배치했습니다.');
+    productPurchaseModal.value = null;
+  } else if (result.message) {
+    emit('showToast', result.message);
+  }
 };
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {

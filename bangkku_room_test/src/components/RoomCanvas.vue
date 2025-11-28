@@ -861,12 +861,12 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
   const settings = store.settings.value;
   let newHeightMm: number;
   if (samePairShelves.length === 0) {
-    newHeightMm = maxHeightMm - settings.shelfCreateDefaultOffsetMm;
+    newHeightMm = settings.shelfCreateDefaultOffsetMm;
   } else {
-    const topmostShelf = samePairShelves.reduce((topmost, current) =>
-      current.y < topmost.y ? current : topmost
+    const bottommostShelf = samePairShelves.reduce((bottommost, current) =>
+      current.y > bottommost.y ? current : bottommost
     );
-    newHeightMm = topmostShelf.y - settings.shelfButtonDefaultOffsetMm;
+    newHeightMm = bottommostShelf.y + settings.shelfButtonDefaultOffsetMm;
   }
 
   if (newHeightMm < 0 || newHeightMm > maxHeightMm) {

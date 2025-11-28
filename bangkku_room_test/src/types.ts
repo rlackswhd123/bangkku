@@ -215,7 +215,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   pillarButtonOffsetMm: 600,
   defaultSectionWidthMm: 800,
   shelfButtonDefaultOffsetMm: 400,
-  shelfCreateDefaultOffsetMm: 300,
+  shelfCreateDefaultOffsetMm: 600,
   buttonSizes: {
     pillarAdd: { width: 70, height: 30 },
     shelfAdd: { radius: 11 },

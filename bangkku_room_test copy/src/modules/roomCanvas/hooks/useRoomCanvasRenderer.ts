@@ -3,7 +3,7 @@ import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
 import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
-import { FaceId, getPhysicalAdjacentFace } from '../models/roomShape';
+import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
 import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import {
@@ -196,18 +196,25 @@ export function useRoomCanvasRenderer({
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
 
+      const currentShape = store.roomShape.value;
+      const labelColor = (faceId: FaceId) =>
+        isFaceActiveInShape(currentShape, faceId) ? '#222222' : '#777777';
+
       const labelY = redRect.y - verticalPadding + 40;
 
       // 왼쪽 파란 벽 상단 (물리적 왼쪽 인접 면)
       const leftWallCenterX = (blueRect.x + redRect.x) / 2;
+      ctx.fillStyle = labelColor(leftAdjacentFaceId);
       ctx.fillText(`${leftAdjacentFaceId}면`, leftWallCenterX, labelY);
 
       // 정면 빨간 벽 상단 (현재 활성 면)
       const frontWallCenterX = redRect.x + redRect.width / 2;
+      ctx.fillStyle = labelColor(currentActiveFaceId);
       ctx.fillText(`${currentActiveFaceId}면`, frontWallCenterX, labelY);
 
       // 오른쪽 파란 벽 상단 (물리적 오른쪽 인접 면)
       const rightWallCenterX = (redRect.x + redRect.width + blueRect.x + blueRect.width) / 2;
+      ctx.fillStyle = labelColor(rightAdjacentFaceId);
       ctx.fillText(`${rightAdjacentFaceId}면`, rightWallCenterX, labelY);
 
       // 컨텍스트 복원
