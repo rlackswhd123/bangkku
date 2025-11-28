@@ -14,7 +14,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 54900,
-      "image": "/src/images/shelf/general_wood.png"
+      "image": "/src/images/shelf/normal_white.png"
     },
     {
       "shelfKey": 0,
@@ -30,7 +30,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 64900,
-      "image": "/src/images/shelf/general_wood.png"
+      "image": "/src/images/shelf/normal_wood.png"
     },
     {
       "shelfKey": 0,
@@ -46,7 +46,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 74900,
-      "image": "/src/images/shelf/general_wood.png"
+      "image": "/src/images/shelf/normal_wood.png"
     },
     {
       "shelfKey": 0,

@@ -51,6 +51,17 @@ export function drawShelf(
     const drawX = startX;
     const drawY = shelfY - drawHeight / 2;
 
+    console.log('🖼️ 선반 이미지 렌더링:', {
+      shelfKey: shelf.shelfKey,
+      'shelf.x (mm)': shelf.x,
+      'section width (mm)': endXMm - startXMm,
+      'startX (px)': startX,
+      'endX (px)': endX,
+      'drawWidth (px)': drawWidth,
+      'drawX (px)': drawX,
+      'image.naturalWidth': shelfImage.naturalWidth,
+    });
+
     ctx.drawImage(
       shelfImage,
       0,
