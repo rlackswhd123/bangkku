@@ -144,7 +144,7 @@ import FurnitureCollisionModal from './modals/FurnitureCollisionModal.vue';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
-  objectSelect: [type: 'pillar' | 'shelf' | 'furniture' | null, key: number | null];
+  objectSelect: [type: 'pillar' | 'shelf' | 'furniture' | 'accessory' | null, key: number | null];
   showToast: [message: string];
   sectionDeleteRequest: [sectionKey: number, shelvesCount: number];
   pillarMoveRequest: [pillarKey: number, totalShelvesCount: number];
@@ -657,7 +657,7 @@ const handleMouseDown = (e: MouseEvent) => {
           accessoryShelfKey: shelf.shelfKey,
           accessorySectionKey: shelf.sectionKey,
         };
-        emit('objectSelect', 'furniture', null);
+        emit('objectSelect', 'accessory', acc.id);
         return;
       }
     }
@@ -936,11 +936,20 @@ const handleMouseMove = (e: MouseEvent) => {
       if (draggedShelf.sectionKey != null) {
         const updatedSections = activeFaceSections.value.map((section: Section) => {
           if (section.sectionKey === draggedShelf.sectionKey) {
-            const updatedShelves = section.shelves.map((s: Shelf) =>
-              s.shelfKey === dragState.value.targetKey
-                ? { ...s, y: finalHeightMm }
-                : s
-            ).sort((a: Shelf, b: Shelf) => a.y - b.y);
+            const updatedShelves = section.shelves.map((s: Shelf) => {
+              if (s.shelfKey !== dragState.value.targetKey) return s;
+              const deltaY = finalHeightMm - s.y;
+              return {
+                ...s,
+                y: finalHeightMm,
+                accessories: s.accessories
+                  ? s.accessories.map((acc: PlacedAccessory) => ({
+                      ...acc,
+                      yMm: acc.yMm != null ? acc.yMm + deltaY : acc.yMm,
+                    }))
+                  : s.accessories,
+              };
+            }).sort((a: Shelf, b: Shelf) => a.y - b.y);
             return {
               ...section,
               shelves: updatedShelves,
@@ -1040,6 +1049,7 @@ const handleMouseUp = () => {
         dragState.value.originalHeightMm,
         maxHeightMm
       );
+      const deltaY = finalHeightMm - draggedShelf.y;
 
       // 섹션 중심 구조: 해당 섹션의 선반만 업데이트 (정렬 유지)
       if (draggedShelf.sectionKey != null) {
@@ -1047,7 +1057,16 @@ const handleMouseUp = () => {
           if (section.sectionKey === draggedShelf.sectionKey) {
             const updatedShelves = section.shelves.map((s: Shelf) => 
               s.shelfKey === dragState.value.targetKey 
-                ? { ...s, y: finalHeightMm }
+                ? {
+                    ...s,
+                    y: finalHeightMm,
+                    accessories: s.accessories
+                      ? s.accessories.map((acc: PlacedAccessory) => ({
+                          ...acc,
+                          yMm: acc.yMm != null ? acc.yMm + deltaY : acc.yMm,
+                        }))
+                      : s.accessories,
+                  }
                 : s
             ).sort((a: Shelf, b: Shelf) => a.y - b.y);
             return {

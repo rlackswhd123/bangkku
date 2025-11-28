@@ -32,6 +32,7 @@
         :pillar="selectedPillar"
         :shelf="selectedShelf"
         :furniture="selectedFurniture"
+        :accessory="selectedAccessory"
         :pillars="uiPillars"
         :sections="uiSections"
         :furnitures="uiFurnitures"
@@ -192,7 +193,7 @@ import ShapeSelector from './components/ShapeSelector.vue';
 import GlobalSettingsModal from './components/GlobalSettingsModal.vue';
 import ObjectInfoPanel from './components/ObjectInfoPanel.vue';
 import Toast from './components/Toast.vue';
-import type { ScaleInfo, Pillar, Section, Shelf } from './types';
+import type { ScaleInfo, Pillar, Section, Shelf, PlacedAccessory } from './types';
 import { useRoomStore } from './modules/roomCanvas/store';
 import { RoomShape } from './modules/roomCanvas/models/roomShape';
 import { deleteShelfFromActiveFace } from './modules/roomCanvas/store/actions';
@@ -207,7 +208,7 @@ const isShapeSelectorOpen = ref(false);
 const isGlobalSettingsModalOpen = ref(false);
 const roomCanvasRef = ref<InstanceType<typeof RoomCanvas> | null>(null);
 
-const selectedType = ref<'pillar' | 'shelf' | 'furniture' | null>(null);
+const selectedType = ref<'pillar' | 'shelf' | 'furniture' | 'accessory' | null>(null);
 const selectedKey = ref<number | null>(null);
 
 const toastMessage = ref<string>('');
@@ -258,13 +259,26 @@ const selectedFurniture = computed(() => {
     : null;
 });
 
+const selectedAccessory = computed(() => {
+  if (selectedType.value !== 'accessory' || selectedKey.value == null) return null;
+  for (const section of store.activeFaceSections.value) {
+    for (const shelf of section.shelves) {
+      const found = shelf.accessories?.find((acc) => acc.id === selectedKey.value);
+      if (found) {
+        return { accessory: found, shelfKey: shelf.shelfKey, sectionKey: section.sectionKey };
+      }
+    }
+  }
+  return null;
+});
+
 /** 캔버스에서 전달된 최신 스케일 정보를 저장해 UI 전반에서 활용합니다. */
 const setScaleInfo = (info: ScaleInfo) => {
   scaleInfo.value = info;
 };
 
 /** 캔버스에서 전달된 선택 대상을 패널과 모달이 참조할 수 있게 저장합니다. */
-const handleObjectSelect = (type: 'pillar' | 'shelf' | 'furniture' | null, key: number | null) => {
+const handleObjectSelect = (type: 'pillar' | 'shelf' | 'furniture' | 'accessory' | null, key: number | null) => {
   selectedType.value = type;
   selectedKey.value = key;
 };
@@ -283,6 +297,20 @@ const handleDelete = () => {
     };
   } else if (selectedType.value === 'furniture' && selectedKey.value != null) {
     store.removeActiveFaceFurniture(selectedKey.value);
+    selectedType.value = null;
+    selectedKey.value = null;
+  } else if (selectedType.value === 'accessory' && selectedKey.value != null) {
+    const updatedSections = store.activeFaceSections.value.map((section) => ({
+      ...section,
+      shelves: section.shelves.map((shelf) => {
+        if (!shelf.accessories) return shelf;
+        return {
+          ...shelf,
+          accessories: shelf.accessories.filter((acc) => acc.id !== selectedKey.value),
+        };
+      }),
+    }));
+    store.setActiveFaceSections(updatedSections as Section[]);
     selectedType.value = null;
     selectedKey.value = null;
   }

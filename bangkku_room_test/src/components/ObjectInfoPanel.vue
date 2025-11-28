@@ -36,7 +36,9 @@
               ? '선반 (Shelf)'
               : isFurniture
                 ? (props.furniture?.name || '가구')
-                : '오브젝트를 선택하세요'
+                : isAccessory
+                  ? accessoryInfo?.name || '소품'
+                  : '오브젝트를 선택하세요'
         }}
       </h3>
     </div>
@@ -49,7 +51,9 @@
             ? '높이 조절이 가능한 시스템 행거 기둥입니다. 알루미늄 소재로 튼튼합니다.'
             : isShelf
               ? '시스템 선반입니다. 다양한 크기로 구성할 수 있습니다.'
-              : '기둥 또는 선반을 클릭하면 상세 정보와 삭제 버튼이 표시됩니다.'
+              : isAccessory
+                ? '선반 위에 놓인 소품입니다.'
+                : '기둥 또는 선반을 클릭하면 상세 정보와 삭제 버튼이 표시됩니다.'
         }}
       </p>
     </div>
@@ -98,6 +102,29 @@
       </div>
     </div>
 
+    <div v-if="isAccessory && accessoryInfo" :style="styles.infoSection">
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">이름:</span>
+        <span :style="styles.infoValue">{{ accessoryInfo.name }}</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">너비:</span>
+        <span :style="styles.infoValue">{{ accessoryInfo.widthMm }}mm</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">높이:</span>
+        <span :style="styles.infoValue">{{ accessoryInfo.heightMm }}mm</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">X 위치:</span>
+        <span :style="styles.infoValue">{{ accessoryInfo.xMm }}mm</span>
+      </div>
+      <div :style="styles.infoItem">
+        <span :style="styles.infoLabel">선반/섹션:</span>
+        <span :style="styles.infoValue">{{ accessoryInfo.shelfKey }} / {{ accessoryInfo.sectionKey }}</span>
+      </div>
+    </div>
+
     <!-- 삭제 버튼 -->
     <div :style="styles.footer">
       <button
@@ -122,11 +149,12 @@ import { Pillar, Shelf } from '../types';
 import { PlacedFurniture } from '../modules/roomCanvas/models/furniture';
 
 interface Props {
-  selectedType: 'pillar' | 'shelf' | 'furniture' | null;
+  selectedType: 'pillar' | 'shelf' | 'furniture' | 'accessory' | null;
   selectedKey: number | null;
   pillar: Pillar | null;
   shelf: Shelf | null;
   furniture: PlacedFurniture | null;
+  accessory?: { accessory: any; shelfKey: number; sectionKey: number } | null;
   pillars: readonly Pillar[];
   furnitures: readonly PlacedFurniture[];
   sections?: ReadonlyArray<{ sectionKey: number; startPillarKey: number; endPillarKey: number } & { shelves: Shelf[] }>;
@@ -178,8 +206,9 @@ onMounted(() => {
 const isPillar = computed(() => props.selectedType === 'pillar' && props.pillar);
 const isShelf = computed(() => props.selectedType === 'shelf' && props.shelf);
 const isFurniture = computed(() => props.selectedType === 'furniture' && props.furniture);
+const isAccessory = computed(() => props.selectedType === 'accessory' && props.accessory);
 const hasSelection = computed(
-  () => !!props.selectedType && props.selectedKey != null && (isPillar.value || isShelf.value || isFurniture.value)
+  () => !!props.selectedType && props.selectedKey != null && (isPillar.value || isShelf.value || isFurniture.value || isAccessory.value)
 );
 
 const shelfImage = computed(() => {
@@ -195,6 +224,19 @@ const furnitureInfo = computed(() => {
     widthMm: Math.round(props.furniture.widthMm),
     heightMm: Math.round(props.furniture.heightMm),
     xMm: Math.round(props.furniture.xMm),
+  };
+});
+
+const accessoryInfo = computed(() => {
+  if (!isAccessory.value || !props.accessory) return null;
+  const acc = props.accessory.accessory;
+  return {
+    name: acc.name ?? '소품',
+    widthMm: Math.round(acc.widthMm),
+    heightMm: Math.round(acc.heightMm),
+    xMm: Math.round(acc.xMm ?? 0),
+    shelfKey: props.accessory.shelfKey,
+    sectionKey: props.accessory.sectionKey,
   };
 });
 
