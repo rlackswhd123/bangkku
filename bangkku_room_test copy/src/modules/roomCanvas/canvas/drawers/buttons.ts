@@ -24,38 +24,10 @@ export function calculateShelfButtonPositions(
   const buttons: ShelfButtonPosition[] = [];
   const store = useRoomStore();
 
-  // 1) 섹션이 없는 경우: 기둥 쌍 기준으로 처음 선반 추가 버튼 표시
-  if (sections.length === 0) {
-    const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
-    if (sortedPillars.length < 2) return buttons;
-
-    const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
-    const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
-    const centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
-
-    for (let i = 0; i < sortedPillars.length - 1; i += 1) {
-      const startPillar = sortedPillars[i];
-      const endPillar = sortedPillars[i + 1];
-
-      const centerXMm = (startPillar.x + endPillar.x) / 2;
-      const centerXPx = mmToPxX(centerXMm, scaleInfo);
-
-      buttons.push({
-        x: centerXPx,
-        y: centerYPx,
-        startPillarKey: startPillar.pillarKey,
-        endPillarKey: endPillar.pillarKey,
-        sectionKey: 0,
-      });
-    }
-
-    return buttons;
-  }
-
-  // 2) 섹션은 있지만 아직 선반이 하나도 없는 경우: 섹션당 1개씩 가운데에 버튼 표시
+  // 1) 섹션은 있지만 아직 선반이 하나도 없는 경우: 섹션당 1개씩 가운데에 버튼 표시
   if (shelves.length === 0) {
-    const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
-    const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
+    const shelfCreateDefaultOffsetMm = store.settings.value.shelfCreateDefaultOffsetMm;
+    const defaultHeightMm = shelfCreateDefaultOffsetMm;
     const centerYPx = mmToPxY(defaultHeightMm, scaleInfo);
 
     sections.forEach((section) => {
@@ -78,11 +50,11 @@ export function calculateShelfButtonPositions(
     return buttons;
   }
 
-  // 3) 선반과 섹션이 모두 있는 경우
+  // 2) 선반과 섹션이 모두 있는 경우
   //    - 선반이 있는 섹션: 소품 버튼과 같은 높이에서, 칸 중앙 기준 왼쪽으로 약간 이동 (페어 버튼)
-  //    - 선반이 아직 없는 섹션: 2번 케이스처럼 섹션당 1개씩 가운데에 버튼 표시 (최초 선반 추가용)
-  const shelfButtonDefaultOffsetMm = store.settings.value.shelfButtonDefaultOffsetMm;
-  const defaultHeightMm = scaleInfo.redRect.height / scaleInfo.scaleY - shelfButtonDefaultOffsetMm;
+  //    - 선반이 아직 없는 섹션: 1번 케이스처럼 섹션당 1개씩 가운데에 버튼 표시 (최초 선반 추가용)
+  const shelfCreateDefaultOffsetMm = store.settings.value.shelfCreateDefaultOffsetMm;
+  const defaultHeightMm = shelfCreateDefaultOffsetMm;
   const defaultCenterYPx = mmToPxY(defaultHeightMm, scaleInfo);
 
   // 섹션별 선반 그룹핑

@@ -190,7 +190,7 @@
 
             <div :style="compactInputsRowStyle">
               <div :style="inputGroupStyle">
-                <label :style="inputLabelStyle">선반 버튼 기본 오프셋 (mm)</label>
+                <label :style="inputLabelStyle">선반 추가 간격 (위로, mm)</label>
                 <input
                   type="number"
                   v-model.number="localShelfButtonDefaultOffsetMm"
@@ -200,7 +200,7 @@
                 />
               </div>
               <div :style="inputGroupStyle">
-                <label :style="inputLabelStyle">선반 생성 오프셋 (mm)</label>
+                <label :style="inputLabelStyle">첫 선반 위치 (바닥에서, mm)</label>
                 <input
                   type="number"
                   v-model.number="localShelfCreateDefaultOffsetMm"
