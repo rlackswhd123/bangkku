@@ -33,7 +33,7 @@
                 <input
                   type="number"
                   :value="localRoomWidth"
-                  @input="(e) => localRoomWidth = Number((e.target as HTMLInputElement).value) || 0"
+                  @input="(e: Event) => localRoomWidth = Number((e.target as HTMLInputElement).value) || 0"
                   :style="inputStyle"
                   :min="ROOM_CONSTRAINTS.MIN_WIDTH_MM"
                   :max="ROOM_CONSTRAINTS.MAX_WIDTH_MM"
@@ -49,7 +49,7 @@
                 <input
                   type="number"
                   :value="localRoomHeight"
-                  @input="(e) => localRoomHeight = Number((e.target as HTMLInputElement).value) || 0"
+                  @input="(e: Event) => localRoomHeight = Number((e.target as HTMLInputElement).value) || 0"
                   :style="inputStyle"
                   :min="0"
                   :step="store.settings.value.roomInputStepMm"

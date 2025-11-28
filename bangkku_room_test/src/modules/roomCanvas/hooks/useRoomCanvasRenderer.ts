@@ -224,28 +224,6 @@ export function useRoomCanvasRenderer({
       ctx.textBaseline = prevTextBaseline;
     }
 
-    // 5. UI 버튼들 (스냅샷 캡처 시 제외)
-    if (!excludeButtons) {
-      drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
-
-      if (currentPillars.length >= 2 || currentSections.length > 0) {
-        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
-        drawAddShelfButtons(ctx, shelfButtons);
-      }
-
-      // 섹션 삭제 버튼 그리기
-      if (currentSections.length > 0) {
-        const sectionDeleteButtons = calculateSectionDeleteButtonPositions(currentSections, currentPillars, currentScaleInfo);
-        drawSectionDeleteButtons(ctx, sectionDeleteButtons);
-      }
-
-      // 소품 추가 버튼 그리기 (각 선반 위에)
-      if (currentShelves.length > 0 && currentSections.length > 0) {
-        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
-        drawItemAddButtons(ctx, itemAddButtons);
-      }
-    }
-
     currentPillars
       .filter((pillar) => (pillar.pillarStyle || 'RS') !== 'DU')
       .forEach((pillar) => {
@@ -399,6 +377,26 @@ export function useRoomCanvasRenderer({
 
       if (currentShelves.length > 0) {
         drawShelfSpacings(ctx, currentShelves, currentPillars, currentSections, currentScaleInfo);
+      }
+    }
+
+    // UI 버튼을 최상단 레이어로 렌더링 (스냅샷 캡처 시 제외)
+    if (!excludeButtons) {
+      drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
+
+      if (currentPillars.length >= 2 || currentSections.length > 0) {
+        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
+        drawAddShelfButtons(ctx, shelfButtons);
+      }
+
+      if (currentSections.length > 0) {
+        const sectionDeleteButtons = calculateSectionDeleteButtonPositions(currentSections, currentPillars, currentScaleInfo);
+        drawSectionDeleteButtons(ctx, sectionDeleteButtons);
+      }
+
+      if (currentShelves.length > 0 && currentSections.length > 0) {
+        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
+        drawItemAddButtons(ctx, itemAddButtons);
       }
     }
   };

@@ -94,7 +94,7 @@
     <ProductPurchaseModal
       :is-open="!!productPurchaseModal"
       :show-rect-preview="showRectPreview"
-      :available-rects-count="availableRects.filter(r => r.isValid).length"
+      :available-rects-count="availableRects.filter((r: AvailableRect) => r.isValid).length"
       :furniture-products="furnitureProducts"
       :available-rects="availableRects"
       @close="productPurchaseModal = null"
@@ -319,7 +319,7 @@ const validateShelfPosition = computed(() => createShelfPositionValidator(active
  */
 const getSectionsWithPillar = (pillarKey: number): Section[] => {
   return activeFaceSections.value.filter(
-    (s) => s.startPillarKey === pillarKey || s.endPillarKey === pillarKey
+    (s: Section) => s.startPillarKey === pillarKey || s.endPillarKey === pillarKey
   );
 };
 
@@ -328,7 +328,7 @@ const getSectionsWithPillar = (pillarKey: number): Section[] => {
  */
 const hasShelvesInSectionsWithPillar = (pillarKey: number): boolean => {
   const sectionsWithPillar = getSectionsWithPillar(pillarKey);
-  return sectionsWithPillar.some((s) => s.shelves.length > 0);
+  return sectionsWithPillar.some((s: Section) => s.shelves.length > 0);
 };
 
 /**
@@ -336,7 +336,7 @@ const hasShelvesInSectionsWithPillar = (pillarKey: number): boolean => {
  */
 const getTotalShelvesCountInSectionsWithPillar = (pillarKey: number): number => {
   const sectionsWithPillar = getSectionsWithPillar(pillarKey);
-  return sectionsWithPillar.reduce((sum, s) => sum + s.shelves.length, 0);
+  return sectionsWithPillar.reduce((sum: number, s: Section) => sum + s.shelves.length, 0);
 };
 
 /**
@@ -355,7 +355,7 @@ const isPointInsideFurniture = (furniture: PlacedFurniture, px: number, py: numb
  * 다른 가구와 겹치는지 검사
  */
 const hasFurnitureCollision = (candidateXMm: number, widthMm: number, excludeId?: number): boolean => {
-  return activeFaceFurnitures.value.some((f) => {
+  return activeFaceFurnitures.value.some((f: PlacedFurniture) => {
     if (excludeId != null && f.id === excludeId) return false;
     const candidateEnd = candidateXMm + widthMm;
     const existingEnd = f.xMm + f.widthMm;
@@ -378,8 +378,8 @@ const handleFurnitureCollisionCancel = () => {
 const handleFurnitureCollisionConfirm = () => {
   if (!furnitureCollisionModal.value) return;
   const conflicts = furnitureCollisionModal.value.conflictingFurnitures;
-  const ids = new Set(conflicts.map((f) => f.id));
-  const remaining = activeFaceFurnitures.value.filter((f) => !ids.has(f.id));
+  const ids = new Set(conflicts.map((f: PlacedFurniture) => f.id));
+  const remaining = activeFaceFurnitures.value.filter((f: PlacedFurniture) => !ids.has(f.id));
   store.setActiveFaceFurnitures(remaining);
   furnitureCollisionModal.value.onApply();
   furnitureCollisionModal.value = null;
@@ -440,26 +440,8 @@ const handleMouseDown = (e: MouseEvent) => {
   const sections = activeFaceSections.value;
   const furnitures = activeFaceFurnitures.value;
 
-  // 가구 드래그 시작 체크 (바닥 가구)
-  for (const furniture of furnitures) {
-    if (isPointInsideFurniture(furniture, x, y)) {
-      const furnCenterOffsetMm = pxToMmX(x, scaleInfo.value) - furniture.xMm;
-      dragState.value = {
-        type: 'furniture',
-        targetKey: furniture.id,
-        startX: x,
-        originalX: furniture.xMm,
-        ghostXMm: furniture.xMm,
-        lastValidXMm: furniture.xMm,
-        offsetXMm: furnCenterOffsetMm,
-      };
-      emit('objectSelect', 'furniture', furniture.id);
-      return;
-    }
-  }
-
   const rightmostPillar = pillars.reduce<Pillar | null>(
-    (rightmost, current) => (!rightmost || current.x > rightmost.x ? current : rightmost),
+    (rightmost: Pillar | null, current: Pillar) => (!rightmost || current.x > rightmost.x ? current : rightmost),
     null
   );
   const settings = store.settings.value;
@@ -558,7 +540,7 @@ const handleMouseDown = (e: MouseEvent) => {
         y >= button.y - buttonHeight / 2 &&
         y <= button.y + buttonHeight / 2
       ) {
-        const targetSection = sections.find((s) => s.sectionKey === button.sectionKey);
+        const targetSection = sections.find((s: Section) => s.sectionKey === button.sectionKey);
         if (!targetSection) return;
         
         // 섹션 중심 구조: 섹션에서 직접 선반 개수 확인
@@ -589,7 +571,7 @@ const handleMouseDown = (e: MouseEvent) => {
       const distanceToShelfButton = Math.sqrt((x - button.x) ** 2 + (y - button.y) ** 2);
       if (distanceToShelfButton <= shelfButtonRadius) {
         // 섹션 폭 계산 (선반 필터링용)
-        const section = sections.find((s) => s.sectionKey === button.sectionKey);
+        const section = sections.find((s: Section) => s.sectionKey === button.sectionKey);
         const sectionWidth = section?.x || 0;
         
         // 선반 추가 모달 열기
@@ -628,12 +610,30 @@ const handleMouseDown = (e: MouseEvent) => {
     }
   }
 
+  // 가구 드래그 시작 체크 (바닥 가구) - 버튼보다 낮은 우선순위
+  for (const furniture of furnitures) {
+    if (isPointInsideFurniture(furniture, x, y)) {
+      const furnCenterOffsetMm = pxToMmX(x, scaleInfo.value) - furniture.xMm;
+      dragState.value = {
+        type: 'furniture',
+        targetKey: furniture.id,
+        startX: x,
+        originalX: furniture.xMm,
+        ghostXMm: furniture.xMm,
+        lastValidXMm: furniture.xMm,
+        offsetXMm: furnCenterOffsetMm,
+      };
+      emit('objectSelect', 'furniture', furniture.id);
+      return;
+    }
+  }
+
   for (const shelf of activeFaceShelves.value) {
     if (shelf.sectionKey == null) continue;
-    const section = sections.find((s) => s.sectionKey === shelf.sectionKey);
+    const section = sections.find((s: Section) => s.sectionKey === shelf.sectionKey);
     if (!section) continue;
-    const startPillar = pillars.find((p) => p.pillarKey === section.startPillarKey);
-    const endPillar = pillars.find((p) => p.pillarKey === section.endPillarKey);
+    const startPillar = pillars.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p: Pillar) => p.pillarKey === section.endPillarKey);
     if (!startPillar || !endPillar) continue;
 
     const startX = mmToPxX(startPillar.x, scaleInfo.value);
@@ -697,7 +697,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
   // 가구 드래그
   if (dragState.value.type === 'furniture' && dragState.value.targetKey != null) {
-    const targetFurniture = activeFaceFurnitures.value.find((f) => f.id === dragState.value.targetKey);
+    const targetFurniture = activeFaceFurnitures.value.find((f: PlacedFurniture) => f.id === dragState.value.targetKey);
     if (targetFurniture) {
       const offsetXMm = dragState.value.offsetXMm ?? 0;
       const newXMm = pxToMmX(x, scaleInfo.value) - offsetXMm;
@@ -746,15 +746,15 @@ const handleMouseMove = (e: MouseEvent) => {
     const constrainedXMm = snappedXMm;
 
     // 기둥 위치 업데이트
-    const updatedPillars = activeFacePillars.value.map((p) =>
+    const updatedPillars = activeFacePillars.value.map((p: Pillar) =>
       p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p
     );
     store.setActiveFacePillars(updatedPillars);
 
     // 섹션 폭 재계산: 이동한 기둥과 연결된 섹션들 업데이트
-    const updatedSections = activeFaceSections.value.map((section) => {
-      const startPillar = updatedPillars.find((p) => p.pillarKey === section.startPillarKey);
-      const endPillar = updatedPillars.find((p) => p.pillarKey === section.endPillarKey);
+    const updatedSections = activeFaceSections.value.map((section: Section) => {
+      const startPillar = updatedPillars.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+      const endPillar = updatedPillars.find((p: Pillar) => p.pillarKey === section.endPillarKey);
 
       if (startPillar && endPillar) {
         return {
@@ -771,7 +771,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
   // 선반 높이 드래그
   if (dragState.value.type === 'shelf' && dragState.value.targetKey != null) {
-    const draggedShelf = activeFaceShelves.value.find((s) => s.shelfKey === dragState.value.targetKey);
+    const draggedShelf = activeFaceShelves.value.find((s: Shelf) => s.shelfKey === dragState.value.targetKey);
     if (draggedShelf) {
       const newHeightMm = pxToMmY(y, scaleInfo.value);
       const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
@@ -788,9 +788,9 @@ const handleMouseMove = (e: MouseEvent) => {
 
       // 가구와 충돌 검사 추가
       if (draggedShelf.sectionKey != null) {
-        const section = activeFaceSections.value.find(s => s.sectionKey === draggedShelf.sectionKey);
+        const section = activeFaceSections.value.find((s: Section) => s.sectionKey === draggedShelf.sectionKey);
         if (section) {
-          const startPillar = activeFacePillars.value.find(p => p.pillarKey === section.startPillarKey);
+          const startPillar = activeFacePillars.value.find((p: Pillar) => p.pillarKey === section.startPillarKey);
           if (startPillar) {
             const furnitureCollision = checkShelfFurnitureCollision(
               draggedShelf,
@@ -812,13 +812,13 @@ const handleMouseMove = (e: MouseEvent) => {
 
       // 섹션 중심 구조: 해당 섹션의 선반만 업데이트 (정렬 유지)
       if (draggedShelf.sectionKey != null) {
-        const updatedSections = activeFaceSections.value.map(section => {
+        const updatedSections = activeFaceSections.value.map((section: Section) => {
           if (section.sectionKey === draggedShelf.sectionKey) {
-            const updatedShelves = section.shelves.map(s =>
+            const updatedShelves = section.shelves.map((s: Shelf) =>
               s.shelfKey === dragState.value.targetKey
                 ? { ...s, y: finalHeightMm }
                 : s
-            ).sort((a, b) => a.y - b.y);
+            ).sort((a: Shelf, b: Shelf) => a.y - b.y);
             return {
               ...section,
               shelves: updatedShelves,
@@ -838,10 +838,10 @@ const handleMouseMove = (e: MouseEvent) => {
  */
 const handleMouseUp = () => {
   if (dragState.value.type === 'furniture' && dragState.value.targetKey != null) {
-    const targetFurniture = activeFaceFurnitures.value.find((f) => f.id === dragState.value.targetKey);
+    const targetFurniture = activeFaceFurnitures.value.find((f: PlacedFurniture) => f.id === dragState.value.targetKey);
     if (targetFurniture) {
       const finalXMm = dragState.value.lastValidXMm ?? targetFurniture.xMm;
-      const updated = activeFaceFurnitures.value.map((f) =>
+      const updated = activeFaceFurnitures.value.map((f: PlacedFurniture) =>
         f.id === targetFurniture.id ? { ...f, xMm: finalXMm } : f
       );
       store.setActiveFaceFurnitures(updated);
@@ -851,7 +851,7 @@ const handleMouseUp = () => {
   }
 
   if (dragState.value.type === 'pillar' && dragState.value.targetKey != null && scaleInfo.value) {
-    const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === dragState.value.targetKey);
+    const draggedPillar = activeFacePillars.value.find((p: Pillar) => p.pillarKey === dragState.value.targetKey);
     if (draggedPillar) {
       const clampedXMm = Math.max(0, Math.min(roomState.value.roomWidthMm, draggedPillar.x));
       const settings = store.settings.value;
@@ -860,14 +860,14 @@ const handleMouseUp = () => {
 
       // 기둥 위치 업데이트 (정렬 포함)
       const updatedPillars = activeFacePillars.value
-        .map((p) => (p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p))
-        .sort((a, b) => a.x - b.x);
+        .map((p: Pillar) => (p.pillarKey === dragState.value.targetKey ? { ...p, x: constrainedXMm } : p))
+        .sort((a: Pillar, b: Pillar) => a.x - b.x);
       store.setActiveFacePillars(updatedPillars);
 
       // 섹션 폭 재계산: 이동한 기둥과 연결된 섹션들 업데이트
-      const updatedSections = activeFaceSections.value.map((section) => {
-        const startPillar = updatedPillars.find((p) => p.pillarKey === section.startPillarKey);
-        const endPillar = updatedPillars.find((p) => p.pillarKey === section.endPillarKey);
+      const updatedSections = activeFaceSections.value.map((section: Section) => {
+        const startPillar = updatedPillars.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+        const endPillar = updatedPillars.find((p: Pillar) => p.pillarKey === section.endPillarKey);
         
         if (startPillar && endPillar) {
           return {
@@ -882,7 +882,7 @@ const handleMouseUp = () => {
   }
 
   if (dragState.value.type === 'shelf' && dragState.value.targetKey != null && scaleInfo.value) {
-    const draggedShelf = activeFaceShelves.value.find((s) => s.shelfKey === dragState.value.targetKey);
+    const draggedShelf = activeFaceShelves.value.find((s: Shelf) => s.shelfKey === dragState.value.targetKey);
     if (draggedShelf) {
       const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
       const clampedHeightMm = Math.max(0, Math.min(maxHeightMm, draggedShelf.y));
@@ -897,13 +897,13 @@ const handleMouseUp = () => {
 
       // 섹션 중심 구조: 해당 섹션의 선반만 업데이트 (정렬 유지)
       if (draggedShelf.sectionKey != null) {
-        const updatedSections = activeFaceSections.value.map(section => {
+        const updatedSections = activeFaceSections.value.map((section: Section) => {
           if (section.sectionKey === draggedShelf.sectionKey) {
-            const updatedShelves = section.shelves.map(s => 
+            const updatedShelves = section.shelves.map((s: Shelf) => 
               s.shelfKey === dragState.value.targetKey 
                 ? { ...s, y: finalHeightMm }
                 : s
-            ).sort((a, b) => a.y - b.y);
+            ).sort((a: Shelf, b: Shelf) => a.y - b.y);
             return {
               ...section,
               shelves: updatedShelves,
@@ -951,7 +951,7 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
 
   const sectionKey = shelfAddModal.value.sectionKey;
 
-  const section = activeFaceSections.value.find((s) => s.sectionKey === sectionKey);
+  const section = activeFaceSections.value.find((s: Section) => s.sectionKey === sectionKey);
   if (!section) {
     emit('showToast', '섹션 정보를 찾을 수 없습니다.');
     shelfAddModal.value = null;
@@ -959,7 +959,7 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
   }
 
   // 해당 섹션의 선반만 사용 (최신 상태 보장)
-  const samePairShelves: Shelf[] = section.shelves.filter(s => s.sectionKey === sectionKey);
+  const samePairShelves: Shelf[] = section.shelves.filter((s: Shelf) => s.sectionKey === sectionKey);
   const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
 
   const settings = store.settings.value;
@@ -979,8 +979,8 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     return;
   }
 
-  const startPillar = activeFacePillars.value.find((p) => p.pillarKey === section.startPillarKey);
-  const endPillar = activeFacePillars.value.find((p) => p.pillarKey === section.endPillarKey);
+  const startPillar = activeFacePillars.value.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+  const endPillar = activeFacePillars.value.find((p: Pillar) => p.pillarKey === section.endPillarKey);
   if (!startPillar || !endPillar) {
     emit('showToast', '기둥 정보를 찾을 수 없습니다.');
     shelfAddModal.value = null;
@@ -1009,9 +1009,9 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
   });
 
   const applyShelfCreation = () => {
-    const updatedSections = activeFaceSections.value.map((s) => {
+    const updatedSections = activeFaceSections.value.map((s: Section) => {
       if (s.sectionKey === sectionKey) {
-        const updatedShelves = [...s.shelves, newShelf].sort((a, b) => a.y - b.y);
+        const updatedShelves = [...s.shelves, newShelf].sort((a: Shelf, b: Shelf) => a.y - b.y);
         return {
           ...s,
           shelves: updatedShelves,
