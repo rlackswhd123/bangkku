@@ -705,10 +705,17 @@ export function useRoomStore() {
       sourceFaceX: number;
       sourceFaceY: number;
       contentHash?: string;
-    }
+    } | null
   ) => {
     const face = roomState.value.faces[faceId];
     if (!face) return;
+
+    // null이면 스냅샷 제거
+    if (snapshotData === null) {
+      face.projectedSnapshot = null;
+      console.log(`면 ${faceId} 스냅샷 제거 완료`);
+      return;
+    }
 
     const { imageDataUrl, imageElement, sourceFaceX, sourceFaceY, contentHash } = snapshotData;
 

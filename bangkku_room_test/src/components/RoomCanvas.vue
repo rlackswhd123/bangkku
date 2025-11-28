@@ -116,7 +116,7 @@ import {
   calculateSectionDeleteButtonPositions,
   calculateItemAddButtonPositions,
 } from '../modules/roomCanvas/canvas/drawers/buttons';
-import { createPillarPositionValidator, createShelfPositionValidator } from '../modules/roomCanvas/interactions/constraints';
+import { createPillarPositionValidator, createShelfPositionValidator, checkShelfFurnitureCollision, checkPillarFurnitureCollision } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
 import { getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
 import productsData from '../data/products.json';
@@ -659,11 +659,31 @@ const handleMouseMove = (e: MouseEvent) => {
     const maxXMm = roomState.value.roomWidthMm;
     const clampedXMm = Math.max(minXMm, Math.min(maxXMm, snappedXMm));
 
-    const constrainedXMm = validatePillarPosition.value(
+    // 기존 기둥 간 충돌 검사
+    let adjustedXMm = validatePillarPosition.value(
       dragState.value.targetKey,
       clampedXMm,
       activeFacePillars.value
     );
+
+    // 가구와 충돌 검사 추가
+    const draggedPillar = activeFacePillars.value.find(p => p.pillarKey === dragState.value.targetKey);
+    if (draggedPillar) {
+      const furnitureCollision = checkPillarFurnitureCollision(
+        draggedPillar,
+        adjustedXMm,
+        activeFaceFurnitures.value,
+        settings.pillarThicknessMm,
+        roomState.value.roomHeightMm
+      );
+
+      // 가구와 충돌 시 유효한 위치로 조정
+      if (furnitureCollision.hasCollision) {
+        adjustedXMm = furnitureCollision.validXMm;
+      }
+    }
+
+    const constrainedXMm = adjustedXMm;
 
     // 기둥 위치 업데이트
     const updatedPillars = activeFacePillars.value.map((p) =>
@@ -675,7 +695,7 @@ const handleMouseMove = (e: MouseEvent) => {
     const updatedSections = activeFaceSections.value.map((section) => {
       const startPillar = updatedPillars.find((p) => p.pillarKey === section.startPillarKey);
       const endPillar = updatedPillars.find((p) => p.pillarKey === section.endPillarKey);
-      
+
       if (startPillar && endPillar) {
         return {
           ...section,
@@ -685,7 +705,7 @@ const handleMouseMove = (e: MouseEvent) => {
       return section;
     });
     store.setActiveFaceSections(updatedSections);
-    
+
     return;
   }
 
@@ -696,22 +716,46 @@ const handleMouseMove = (e: MouseEvent) => {
       const newHeightMm = pxToMmY(y, scaleInfo.value);
       const maxHeightMm = scaleInfo.value.redRect.height / scaleInfo.value.scaleY;
       const clampedHeightMm = Math.max(0, Math.min(maxHeightMm, newHeightMm));
-      
-      // validateShelfPosition에 originalHeightMm과 maxHeightMm을 전달하여 드래그 방향 감지 및 충돌 방지
-      const finalHeightMm = validateShelfPosition.value(
-        dragState.value.targetKey, 
-        clampedHeightMm, 
+
+      // 기존 선반 간 충돌 검사
+      let adjustedHeightMm = validateShelfPosition.value(
+        dragState.value.targetKey,
+        clampedHeightMm,
         activeFaceShelves.value,
         dragState.value.originalHeightMm,
         maxHeightMm
       );
 
+      // 가구와 충돌 검사 추가
+      if (draggedShelf.sectionKey != null) {
+        const section = activeFaceSections.value.find(s => s.sectionKey === draggedShelf.sectionKey);
+        if (section) {
+          const startPillar = activeFacePillars.value.find(p => p.pillarKey === section.startPillarKey);
+          if (startPillar) {
+            const furnitureCollision = checkShelfFurnitureCollision(
+              draggedShelf,
+              adjustedHeightMm,
+              startPillar.x,
+              section.x,
+              activeFaceFurnitures.value
+            );
+
+            // 가구와 충돌 시 유효한 위치로 조정
+            if (furnitureCollision.hasCollision) {
+              adjustedHeightMm = furnitureCollision.validYMm;
+            }
+          }
+        }
+      }
+
+      const finalHeightMm = adjustedHeightMm;
+
       // 섹션 중심 구조: 해당 섹션의 선반만 업데이트 (정렬 유지)
       if (draggedShelf.sectionKey != null) {
         const updatedSections = activeFaceSections.value.map(section => {
           if (section.sectionKey === draggedShelf.sectionKey) {
-            const updatedShelves = section.shelves.map(s => 
-              s.shelfKey === dragState.value.targetKey 
+            const updatedShelves = section.shelves.map(s =>
+              s.shelfKey === dragState.value.targetKey
                 ? { ...s, y: finalHeightMm }
                 : s
             ).sort((a, b) => a.y - b.y);
@@ -892,9 +936,17 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     x: shelfLength,
     y: newHeightMm,
     z: 0,
-    t_limit: 0,
-    b_limit: 0,
+    t_limit: product.t_limit,
+    b_limit: product.b_limit,
   };
+
+  console.log('✅ 선반 생성:', {
+    type: product.type,
+    prodKey: product.prodKey,
+    t_limit: product.t_limit,
+    b_limit: product.b_limit,
+    '복사 확인': { t_limit: newShelf.t_limit, b_limit: newShelf.b_limit }
+  });
 
   // 섹션 중심 구조: 해당 섹션에만 선반 추가 (정렬 유지)
   const updatedSections = activeFaceSections.value.map((s) => {
@@ -955,7 +1007,7 @@ const captureCurrentFaceSnapshot = async () => {
     // 빈 면은 스냅샷 제거 (투명 이미지로 대체)
     if (!hasFurniture) {
       console.log(`🚫 면 ${currentFaceId} 스냅샷 생략 (빈 면) - 기존 스냅샷 제거`);
-      store.updateFaceSnapshot(currentFaceId, null as any);
+      store.updateFaceSnapshot(currentFaceId, null);
       return;
     }
 

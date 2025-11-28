@@ -2,6 +2,130 @@
 import { Pillar, RoomState, Shelf, FURNITURE_DIMENSIONS } from '../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 import { useRoomStore } from '../store';
+import type { PlacedFurniture } from '../models/furniture';
+
+/**
+ * 선반이 가구와 충돌하는지 검사하고 유효한 Y 위치를 반환합니다.
+ * @param shelf - 검사할 선반
+ * @param newYMm - 선반의 새로운 Y 위치 (mm)
+ * @param sectionStartXMm - 섹션 시작 X 위치 (mm)
+ * @param sectionWidth - 섹션 너비 (mm)
+ * @param furnitures - 배치된 가구 목록
+ * @returns 충돌 여부와 유효한 Y 위치
+ */
+export function checkShelfFurnitureCollision(
+  shelf: Shelf,
+  newYMm: number,
+  sectionStartXMm: number,
+  sectionWidth: number,
+  furnitures: PlacedFurniture[]
+): { hasCollision: boolean; validYMm: number } {
+  const shelfType = shelf.type || 'normal';
+  const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+  const shelfThickness = shelfDimensions.heightMm;
+
+  // 선반의 AABB 경계 (b_limit 포함)
+  const shelfLeft = sectionStartXMm;
+  const shelfRight = sectionStartXMm + sectionWidth;
+  const shelfTop = newYMm + shelfThickness / 2;
+  const shelfBottom = newYMm - shelfThickness / 2 - shelf.b_limit; // b_limit 영역 포함
+
+  let hasCollision = false;
+  let validYMm = newYMm;
+
+  // 각 가구와 충돌 검사
+  for (const furniture of furnitures) {
+    const furnitureLeft = furniture.xMm;
+    const furnitureRight = furniture.xMm + furniture.widthMm;
+    const furnitureTop = furniture.yMm + furniture.heightMm;
+    const furnitureBottom = furniture.yMm;
+
+    // AABB 충돌 검사 (X축 겹침 확인)
+    const xOverlap = shelfLeft < furnitureRight && shelfRight > furnitureLeft;
+
+    if (xOverlap) {
+      // Y축 충돌 검사 (b_limit 영역 포함)
+      const yOverlap = shelfBottom < furnitureTop && shelfTop > furnitureBottom;
+
+      if (yOverlap) {
+        hasCollision = true;
+        // 충돌 시: 선반 하단(중심 - 두께/2)이 가구 상단보다 b_limit 만큼 위에 위치
+        // 즉, 중심 Y = 가구상단 + b_limit + 두께/2
+        const safeYMm = furnitureTop + shelf.b_limit + shelfThickness / 2;
+        console.log('🚨 선반-가구 충돌:', {
+          furnitureTop,
+          b_limit: shelf.b_limit,
+          shelfThickness,
+          safeYMm,
+          계산식: `${furnitureTop} + ${shelf.b_limit} + ${shelfThickness / 2} = ${safeYMm}`
+        });
+        validYMm = Math.max(validYMm, safeYMm);
+      }
+    }
+  }
+
+  return { hasCollision, validYMm };
+}
+
+/**
+ * 기둥이 가구와 충돌하는지 검사하고 유효한 X 위치를 반환합니다.
+ * @param pillar - 검사할 기둥
+ * @param newXMm - 기둥의 새로운 X 위치 (mm)
+ * @param furnitures - 배치된 가구 목록
+ * @param pillarThicknessMm - 기둥 두께 (mm)
+ * @param roomHeightMm - 방 높이 (mm)
+ * @returns 충돌 여부와 유효한 X 위치
+ */
+export function checkPillarFurnitureCollision(
+  pillar: Pillar,
+  newXMm: number,
+  furnitures: PlacedFurniture[],
+  pillarThicknessMm: number,
+  roomHeightMm: number
+): { hasCollision: boolean; validXMm: number } {
+  // RS 스타일 기둥은 충돌 검사 제외
+  const pillarStyle = pillar.pillarStyle || 'RS';
+  if (pillarStyle === 'RS') {
+    return { hasCollision: false, validXMm: newXMm };
+  }
+
+  // 기둥의 AABB 경계 (두께 고려)
+  const pillarLeft = newXMm - pillarThicknessMm / 2;
+  const pillarRight = newXMm + pillarThicknessMm / 2;
+  const pillarTop = roomHeightMm;
+  const pillarBottom = 0;
+
+  let hasCollision = false;
+  let validXMm = newXMm;
+
+  // 각 가구와 충돌 검사
+  for (const furniture of furnitures) {
+    const furnitureLeft = furniture.xMm;
+    const furnitureRight = furniture.xMm + furniture.widthMm;
+    const furnitureTop = furniture.yMm + furniture.heightMm;
+    const furnitureBottom = furniture.yMm;
+
+    // AABB 충돌 검사
+    const xOverlap = pillarLeft < furnitureRight && pillarRight > furnitureLeft;
+    const yOverlap = pillarBottom < furnitureTop && pillarTop > furnitureBottom;
+
+    if (xOverlap && yOverlap) {
+      hasCollision = true;
+      // 충돌 시: 가구 왼쪽 또는 오른쪽으로 기둥 배치
+      // 더 가까운 쪽 선택
+      const distanceToLeft = Math.abs(newXMm - furnitureLeft);
+      const distanceToRight = Math.abs(newXMm - furnitureRight);
+
+      if (distanceToLeft < distanceToRight) {
+        validXMm = furnitureLeft - pillarThicknessMm / 2;
+      } else {
+        validXMm = furnitureRight + pillarThicknessMm / 2;
+      }
+    }
+  }
+
+  return { hasCollision, validXMm };
+}
 
 /**
  * 기둥이 서로 겹치지 않도록 인접 기둥과 방 폭을 기준으로 이동 가능 범위를 제한합니다.
@@ -51,7 +175,6 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
 
     // 스토어에서 글로벌 설정 가져오기
     const store = useRoomStore();
-    const SHELF_SPACING = store.settings.value.shelfSpacingRules;
     const gridSize = store.settings.value.gridSizeMm;
     
     // 경계 범위 설정 (빨간 네모 범위)
@@ -72,28 +195,24 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
         s.shelfKey !== targetShelfKey &&
         s.sectionKey === targetShelf.sectionKey
     );
-    
-    const targetShelfType = targetShelf.type || 'normal';
 
-    const getRequiredSpacing = (upperShelfType: string, lowerShelfType: string): number => {
-      const upperSpacing = SHELF_SPACING[upperShelfType as keyof typeof SHELF_SPACING] || SHELF_SPACING.normal;
-      const lowerSpacing = SHELF_SPACING[lowerShelfType as keyof typeof SHELF_SPACING] || SHELF_SPACING.normal;
-      return Math.max(upperSpacing.below, lowerSpacing.above);
+    const getRequiredSpacing = (upperShelf: Shelf, lowerShelf: Shelf): number => {
+      // 위쪽 선반의 b_limit과 아래쪽 선반의 t_limit 중 큰 값 사용
+      return Math.max(upperShelf.b_limit, lowerShelf.t_limit);
     };
 
     // 경계선 제한값 계산 함수 (하단 경계선만 간격 규칙 포함, 상단은 경계선만 체크)
-    const getBoundaryLimits = (shelfType: string, thickness: number): { min: number; max: number } => {
-      const spacing = SHELF_SPACING[shelfType as keyof typeof SHELF_SPACING] || SHELF_SPACING.normal;
+    const getBoundaryLimits = (shelf: Shelf, thickness: number): { min: number; max: number } => {
       return {
-        min: minHeightMm + spacing.below + thickness / 2, // 하단: 간격 규칙 포함
-        max: maxAllowedHeightMm - thickness / 2, // 상단: 경계선만 체크 (간격 규칙 제거)
+        min: minHeightMm + shelf.b_limit + thickness / 2, // 하단: b_limit 포함
+        max: maxAllowedHeightMm - thickness / 2, // 상단: 경계선만 체크
       };
     };
 
     // 위치 유효성 검증 함수: 특정 높이에서 선반이 모든 제약을 만족하는지 확인
     const isValidPosition = (testHeightMm: number): boolean => {
       // 경계선 체크 (하단만 간격 규칙 포함, 상단은 경계선만 체크)
-      const boundaryLimits = getBoundaryLimits(targetShelfType, targetThickness);
+      const boundaryLimits = getBoundaryLimits(targetShelf, targetThickness);
       if (testHeightMm < boundaryLimits.min) {
         return false; // 하단: 간격 규칙 위반
       }
@@ -109,8 +228,8 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
         const otherDimensions = FURNITURE_DIMENSIONS[otherShelfType];
         const otherThickness = otherDimensions.heightMm;
         const spacing = getRequiredSpacing(
-          testHeightMm > otherShelf.y ? targetShelfType : otherShelfType,
-          testHeightMm > otherShelf.y ? otherShelfType : targetShelfType
+          testHeightMm > otherShelf.y ? targetShelf : otherShelf,
+          testHeightMm > otherShelf.y ? otherShelf : targetShelf
         );
 
         let distance: number;
@@ -138,9 +257,9 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
 
     // 거리 계산 기반 충돌 체크 및 위치 조정
     let adjustedHeightMm = newHeightMm;
-    
+
     // 경계선 제한값 계산 (항상 필요)
-    const boundaryLimits = getBoundaryLimits(targetShelfType, targetThickness);
+    const boundaryLimits = getBoundaryLimits(targetShelf, targetThickness);
     const maxAllowedCenter = maxAllowedHeightMm - targetThickness / 2;
     
     // 경계선 체크 및 조정 (단일 선반일 때도 필요)
@@ -232,7 +351,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
             const collisionShelfType = collisionShelf.type || 'normal';
             const collisionDimensions = FURNITURE_DIMENSIONS[collisionShelfType];
             const collisionThickness = collisionDimensions.heightMm;
-            const spacing = getRequiredSpacing(targetShelfType, collisionShelfType);
+            const spacing = getRequiredSpacing(targetShelf, collisionShelf);
             // 선반 중심 = 충돌 선반 상단 + 간격 + 내 두께/2
             candidateHeight = collisionShelf.y + collisionThickness / 2 + spacing + targetThickness / 2;
             // 넘어가지 못할 경우: 충돌하는 선반 바로 아래, 간격 규칙 만족하는 위치
@@ -269,7 +388,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
             const collisionShelfType = collisionShelf.type || 'normal';
             const collisionDimensions = FURNITURE_DIMENSIONS[collisionShelfType];
             const collisionThickness = collisionDimensions.heightMm;
-            const spacing = getRequiredSpacing(collisionShelfType, targetShelfType);
+            const spacing = getRequiredSpacing(collisionShelf, targetShelf);
             // 선반 중심 = 충돌 선반 하단 - 간격 - 내 두께/2
             candidateHeight = collisionShelf.y - collisionThickness / 2 - spacing - targetThickness / 2;
             // 넘어가지 못할 경우: 충돌하는 선반 바로 위, 간격 규칙 만족하는 위치
@@ -304,7 +423,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       if (adjustedHeightMm > shelf.y) {
         // 드래그 중인 선반이 위에 있음
         // 거리 = (내 중심 - 내 두께/2) - (다른 중심 + 다른 두께/2)
-        const spacing = getRequiredSpacing(targetShelfType, otherShelfType);
+        const spacing = getRequiredSpacing(targetShelf, shelf);
         const distance = (adjustedHeightMm - targetThickness / 2) - (shelf.y + otherThickness / 2);
         if (distance < spacing) {
           // 최소 간격을 만족하는 높이 = 다른 중심 + 다른 두께/2 + 간격 + 내 두께/2
@@ -314,7 +433,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       } else if (adjustedHeightMm < shelf.y) {
         // 드래그 중인 선반이 아래에 있음
         // 거리 = (다른 중심 - 다른 두께/2) - (내 중심 + 내 두께/2)
-        const spacing = getRequiredSpacing(otherShelfType, targetShelfType);
+        const spacing = getRequiredSpacing(shelf, targetShelf);
         const distance = (shelf.y - otherThickness / 2) - (adjustedHeightMm + targetThickness / 2);
         if (distance < spacing) {
           // 최소 간격을 만족하는 높이 = 다른 중심 - 다른 두께/2 - 간격 - 내 두께/2
