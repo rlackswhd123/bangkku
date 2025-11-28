@@ -38,27 +38,7 @@
             <div :style="modalBodyStyle">
               <!-- 가구 카테고리 -->
               <div>
-                <!-- Rect 미리보기 토글 -->
-                <div :style="{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }">
-                  <button
-                    @click="$emit('toggleRectPreview')"
-                    :style="{
-                      padding: '8px 16px',
-                      backgroundColor: showRectPreview ? '#4CAF50' : '#E0E0E0',
-                      color: showRectPreview ? '#FFF' : '#000',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }"
-                  >
-                    {{ showRectPreview ? 'Rect 미리보기 끄기' : 'Rect 미리보기 켜기' }}
-                  </button>
-                  <span :style="{ fontSize: '12px', color: '#666' }">
-                    배치 가능 위치: {{ availableRectsCount }}개
-                  </span>
-                </div>
-                
+                <!-- Rect 미리보기/카운트 표시 제거 -->
                 <!-- 추천 섹션 (배치 가능한 가구) -->
                 <div v-if="filteredFurnitureProducts.recommended.length > 0">
                   <div :style="shelfGridStyle">

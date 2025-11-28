@@ -370,6 +370,7 @@ export function useRoomCanvasRenderer({
       }
     }
 
+
     currentPillars
       .filter((pillar) => (pillar.pillarStyle || 'RS') === 'DU')
       .forEach((pillar) => {

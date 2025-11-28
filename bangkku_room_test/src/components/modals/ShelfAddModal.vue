@@ -112,9 +112,9 @@
 
               <!-- 소품 카테고리 -->
               <div v-if="currentCategory === 'item'">
-                <div v-if="accessories.length > 0" :style="shelfGridStyle">
+                <div v-if="filteredAccessories.recommended.length > 0" :style="shelfGridStyle">
                   <div
-                    v-for="product in accessories"
+                    v-for="product in filteredAccessories.recommended"
                     :key="product.prodKey"
                     @click="handleAccessorySelect(product)"
                     :style="shelfCardStyle"
@@ -135,7 +135,37 @@
                     <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                   </div>
                 </div>
-                <div v-else :style="emptyCategoryMessageStyle">
+
+                <div v-if="filteredAccessories.others.length > 0" :style="{ marginTop: filteredAccessories.recommended.length > 0 ? '32px' : '0' }">
+                  <div v-if="filteredAccessories.recommended.length > 0" :style="othersSectionTitleStyle">
+                    기타 크기
+                  </div>
+                  <div :style="shelfGridStyle">
+                    <div
+                      v-for="product in filteredAccessories.others"
+                      :key="product.prodKey"
+                      :style="getDisabledShelfCardStyle()"
+                    >
+                      <div :style="shelfImageAreaStyle">
+                        <img
+                          v-if="product.image"
+                          :src="product.image"
+                          :alt="product.name"
+                          :style="shelfPreviewImageStyle"
+                        />
+                        <div v-else :style="shelfPreviewPlaceholderStyle" />
+                      </div>
+                      <div :style="shelfCardTitleStyle">{{ product.name }}</div>
+                      <div :style="shelfCardSizeStyle">{{ product.widthMm }} × {{ product.heightMm }} (mm)</div>
+                      <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-if="filteredAccessories.recommended.length === 0 && filteredAccessories.others.length === 0"
+                  :style="emptyCategoryMessageStyle"
+                >
                   소품 상품이 없습니다.
                 </div>
               </div>
@@ -167,6 +197,7 @@ const props = defineProps<{
   sectionWidth: number;
   products: Shelf[];
   accessories: AccessoryProduct[];
+  accessoryRect?: { x: number; y: number; width: number; height: number } | null;
   defaultCategory?: 'shelf' | 'item';
   targetShelfKey?: number;
   getProductImage: (type: 'normal' | 'hanger' | 'drawer') => { src: string } | null;
@@ -220,6 +251,30 @@ const handleProductSelect = (product: Shelf) => {
 const handleAccessorySelect = (product: AccessoryProduct) => {
   emit('selectAccessory', product, props.targetShelfKey);
 };
+
+// 소품 필터링: rect 안에 들어갈 수 있는지 여부로 분리
+const filteredAccessories = computed(() => {
+  if (!props.accessoryRect) {
+    return {
+      recommended: [],
+      others: props.accessories,
+    };
+  }
+  const { width, height } = props.accessoryRect;
+  const recommended: AccessoryProduct[] = [];
+  const others: AccessoryProduct[] = [];
+
+  props.accessories.forEach((product) => {
+    const fits = product.widthMm <= width && product.heightMm <= height;
+    if (fits) {
+      recommended.push(product);
+    } else {
+      others.push(product);
+    }
+  });
+
+  return { recommended, others };
+});
 
 // 이벤트 핸들러
 const handleShelfCardHover = (e: MouseEvent) => {
@@ -339,6 +394,8 @@ const shelfGridStyle = {
   gridTemplateColumns: 'repeat(3, 1fr)',
   gap: '16px',
   minHeight: '450px',
+  alignItems: 'start',
+  alignContent: 'start',
 };
 
 const shelfCardStyle = {

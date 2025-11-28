@@ -86,6 +86,7 @@
       :section-width="shelfAddModal?.sectionWidth || 0"
       :products="shelfProducts"
       :accessories="accessoryProducts"
+      :accessory-rect="accessoryPreviewRect"
       :default-category="shelfAddModal?.defaultCategory || 'shelf'"
       :target-shelf-key="shelfAddModal?.targetShelfKey"
       :get-product-image="getProductImage"
@@ -118,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type CSSProperties, type Ref, onMounted } from 'vue';
+import { ref, computed, type CSSProperties, type Ref, onMounted, watch } from 'vue';
 import { Pillar, Shelf, Section, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo, AccessoryProduct, FURNITURE_DIMENSIONS, PlacedAccessory } from '../types';
 import { mmToPxX, mmToPxY, pxToMmX, pxToMmY, snapToGrid } from '../utils/coordinates';
 import { useImageAssets } from '../modules/roomCanvas/hooks/useImageAssets';
@@ -290,6 +291,9 @@ const roomWidthDisplay = computed(() => {
   const widthM = (roomState.value.roomWidthMm / 1000).toFixed(1);
   return `${widthM} M`;
 });
+
+// 소품 배치 rect 미리보기
+const accessoryPreviewRect = ref<{ x: number; y: number; width: number; height: number } | null>(null);
 
 const { scaleInfo, render: renderCanvas } = useRoomCanvasRenderer({
   canvasRef,
@@ -1232,6 +1236,71 @@ const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
   shelfAddModal.value = null;
   emit('showToast', `${product.name} 소품을 추가했습니다.`);
 };
+
+const computeAccessoryRect = (targetShelfKey: number | undefined | null) => {
+  if (targetShelfKey == null) {
+    accessoryPreviewRect.value = null;
+    return;
+  }
+  const targetShelf = activeFaceShelves.value.find((s) => s.shelfKey === targetShelfKey);
+  if (!targetShelf || targetShelf.sectionKey == null) {
+    accessoryPreviewRect.value = null;
+    return;
+  }
+  const section = activeFaceSections.value.find((sec: Section) => sec.sectionKey === targetShelf.sectionKey);
+  if (!section) {
+    accessoryPreviewRect.value = null;
+    return;
+  }
+  const startPillar = activeFacePillars.value.find((p) => p.pillarKey === section.startPillarKey);
+  const endPillar = activeFacePillars.value.find((p) => p.pillarKey === section.endPillarKey);
+  if (!startPillar || !endPillar) {
+    accessoryPreviewRect.value = null;
+    return;
+  }
+
+  const shelfThickness = targetShelf.type ? FURNITURE_DIMENSIONS[targetShelf.type]?.heightMm ?? 0 : 0;
+  const topY = targetShelf.y + shelfThickness / 2;
+
+  const upperShelves = section.shelves.filter((s) => s.shelfKey !== targetShelf.shelfKey && s.y > targetShelf.y);
+  const nearestUpper = upperShelves.length > 0
+    ? upperShelves.reduce((closest, s) => (s.y < closest.y ? s : closest), upperShelves[0])
+    : null;
+
+  let boundaryY = roomState.value.roomHeightMm;
+  if (nearestUpper) {
+    const nearestThickness = nearestUpper.type ? FURNITURE_DIMENSIONS[nearestUpper.type]?.heightMm ?? 0 : 0;
+    boundaryY = nearestUpper.y - nearestThickness / 2;
+  }
+
+  const height = boundaryY - topY;
+  if (height <= 0) {
+    accessoryPreviewRect.value = null;
+    return;
+  }
+
+  accessoryPreviewRect.value = {
+    x: startPillar.x,
+    y: topY,
+    width: endPillar.x - startPillar.x,
+    height,
+  };
+};
+
+watch(
+  () => shelfAddModal.value,
+  (val) => {
+    if (!val) {
+      accessoryPreviewRect.value = null;
+      return;
+    }
+    if (val.defaultCategory === 'item' && val.targetShelfKey) {
+      computeAccessoryRect(val.targetShelfKey);
+    } else {
+      accessoryPreviewRect.value = null;
+    }
+  }
+);
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {
   if (!shelfAddModal.value || !scaleInfo.value) return;
