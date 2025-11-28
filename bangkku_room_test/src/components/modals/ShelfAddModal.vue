@@ -58,8 +58,8 @@
                     >
                       <div :style="shelfImageAreaStyle">
                         <img
-                          v-if="getProductImage(product.type)"
-                          :src="getProductImage(product.type)?.src"
+                          v-if="product.image || getProductImage(product.type)"
+                          :src="product.image || getProductImage(product.type)?.src"
                           :alt="product.name"
                           :style="shelfPreviewImageStyle"
                         />
@@ -86,8 +86,8 @@
                     >
                       <div :style="shelfImageAreaStyle">
                         <img
-                          v-if="getProductImage(product.type)"
-                          :src="getProductImage(product.type)?.src"
+                          v-if="product.image || getProductImage(product.type)"
+                          :src="product.image || getProductImage(product.type)?.src"
                           :alt="product.name"
                           :style="shelfPreviewImageStyle"
                         />

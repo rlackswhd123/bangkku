@@ -172,7 +172,7 @@ const createSection = (start: Pillar, end: Pillar): Section => ({
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
-const { cornerImages, shelfImages, wallImages } = useImageAssets();
+const { cornerImages, shelfImages, pillarImages, wallImages } = useImageAssets();
 
 // 상품 목록 데이터 (Shelf 타입 사용)
 const shelfProducts = ref<Shelf[]>([]);
@@ -306,6 +306,7 @@ const { scaleInfo, render: renderCanvas } = useRoomCanvasRenderer({
   dragState,
   cornerImages,
   shelfImages,
+  pillarImages,
   wallImages,
   onScaleChange: (info) => emit('scaleChange', info),
   availableRects,
@@ -1353,7 +1354,8 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
   const settings = store.settings.value;
   let newHeightMm: number;
   if (samePairShelves.length === 0) {
-    newHeightMm = settings.shelfCreateDefaultOffsetMm;
+    // 제품 기본 y가 있으면 우선 사용, 없으면 설정값
+    newHeightMm = product.y ?? settings.shelfCreateDefaultOffsetMm;
   } else {
     const bottommostShelf = samePairShelves.reduce((bottommost, current) =>
       current.y > bottommost.y ? current : bottommost
@@ -1386,6 +1388,9 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     z: 0,
     t_limit: product.t_limit,
     b_limit: product.b_limit,
+    material: product.material,
+    materialName: product.materialName,
+    image: product.image,
   };
 
   console.log('✅ 선반 생성:', {

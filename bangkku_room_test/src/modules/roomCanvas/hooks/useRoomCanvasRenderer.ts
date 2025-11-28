@@ -4,7 +4,7 @@ import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessor
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
-import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
+import { CornerImages, ShelfImages, WallImages, PillarImages } from './useImageAssets';
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import {
   drawAddPillarButton,
@@ -37,6 +37,7 @@ interface UseRoomCanvasRendererParams {
   cornerImages: Ref<CornerImages>;
   shelfImages: Ref<ShelfImages>;
   wallImages: Ref<WallImages>;
+  pillarImages: Ref<PillarImages>;
   onScaleChange: (scaleInfo: ScaleInfo) => void;
   availableRects?: AvailableRect[] | Ref<AvailableRect[]>;
   showRectPreview?: boolean | Ref<boolean>;
@@ -64,6 +65,7 @@ export function useRoomCanvasRenderer({
   cornerImages,
   shelfImages,
   wallImages,
+  pillarImages,
   onScaleChange,
   availableRects = [],
   showRectPreview = false,
@@ -229,7 +231,7 @@ export function useRoomCanvasRenderer({
       .forEach((pillar) => {
         const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
-          drawPillar(ctx, pillar, currentScaleInfo);
+          drawPillar(ctx, pillar, currentScaleInfo, pillarImages.value);
         }
       });
 
@@ -376,7 +378,7 @@ export function useRoomCanvasRenderer({
       .forEach((pillar) => {
         const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
-          drawPillar(ctx, pillar, currentScaleInfo);
+          drawPillar(ctx, pillar, currentScaleInfo, pillarImages.value);
         }
       });
 
@@ -385,7 +387,7 @@ export function useRoomCanvasRenderer({
       if (ghostPillar) {
         const pillarStyle = ghostPillar.pillarStyle || 'RS';
         if (pillarStyle !== 'DU') {
-          drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
+          drawGhostPillar(ctx, ghostPillar, currentScaleInfo, pillarImages.value);
         }
       }
     }
@@ -402,7 +404,7 @@ export function useRoomCanvasRenderer({
       if (ghostPillar) {
         const pillarStyle = ghostPillar.pillarStyle || 'RS';
         if (pillarStyle === 'DU') {
-          drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
+          drawGhostPillar(ctx, ghostPillar, currentScaleInfo, pillarImages.value);
         }
       }
     }

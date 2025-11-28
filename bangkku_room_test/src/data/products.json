@@ -5,7 +5,7 @@
       "prodKey": 1001,
       "type": "normal",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -13,14 +13,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 54900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/general_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 1002,
       "type": "normal",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -28,14 +28,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 64900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/general_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 1003,
       "type": "normal",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -43,14 +43,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 74900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/general_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 1004,
       "type": "normal",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -58,14 +58,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 49900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/normal_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 1005,
       "type": "normal",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -73,14 +73,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 59900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/normal_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 1006,
       "type": "normal",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 300,
@@ -88,14 +88,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 69900,
-      "image": "/src/images/shelf/일반_선반.png"
+      "image": "/src/images/shelf/normal_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2001,
       "type": "hanger",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -103,14 +103,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 64900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2002,
       "type": "hanger",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -118,14 +118,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 74900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2003,
       "type": "hanger",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -133,14 +133,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 84900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2004,
       "type": "hanger",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -148,14 +148,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 59900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2005,
       "type": "hanger",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -163,14 +163,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 69900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 2006,
       "type": "hanger",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 300,
       "b_limit": 1000,
@@ -178,14 +178,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 79900,
-      "image": "/src/images/shelf/옷걸이_선반.png"
+      "image": "/src/images/shelf/hanger_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3001,
       "type": "drawer",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -193,14 +193,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 89900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3002,
       "type": "drawer",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -208,14 +208,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 99900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3003,
       "type": "drawer",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -223,14 +223,14 @@
       "material": "wood",
       "materialName": "나무",
       "price": 109900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_wood.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3004,
       "type": "drawer",
       "x": 600,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -238,14 +238,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 84900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3005,
       "type": "drawer",
       "x": 800,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -253,14 +253,14 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 94900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_white.png"
     },
     {
       "shelfKey": 0,
       "prodKey": 3006,
       "type": "drawer",
       "x": 1000,
-      "y": 0,
+      "y": 300,
       "z": 400,
       "t_limit": 500,
       "b_limit": 300,
@@ -268,7 +268,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 104900,
-      "image": "/src/images/shelf/서랍_선반.png"
+      "image": "/src/images/shelf/drawer_white.png"
     }
   ]
 }

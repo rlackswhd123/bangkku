@@ -4,10 +4,12 @@ import productsData from '../../../data/products.json';
 
 type CornerImageKey = 111 | 222 | 333 | 444;
 type ShelfImageKey = 'normal' | 'drawer' | 'hanger';
+type PillarImageKey = 'RS' | 'CS' | 'DU';
 type WallImageKey = 'front' | 'left' | 'right';
 
 export type CornerImages = Record<CornerImageKey, HTMLImageElement | null>;
 export type ShelfImages = Record<ShelfImageKey, HTMLImageElement | null>;
+export type PillarImages = Record<PillarImageKey, HTMLImageElement | null>;
 export type WallImages = Record<WallImageKey, HTMLImageElement | null>;
 
 const INITIAL_CORNER_IMAGES: CornerImages = {
@@ -21,6 +23,12 @@ const INITIAL_SHELF_IMAGES: ShelfImages = {
   normal: null,
   drawer: null,
   hanger: null,
+};
+
+const INITIAL_PILLAR_IMAGES: PillarImages = {
+  RS: null,
+  CS: null,
+  DU: null,
 };
 
 const INITIAL_WALL_IMAGES: WallImages = {
@@ -50,6 +58,14 @@ const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string | null> = {
   hanger: pickImageForType('hanger'),
 };
 
+const PILLAR_IMAGE_PATHS: Record<PillarImageKey, string> = {
+  RS: new URL('../../../images/pillar/RS.png', import.meta.url).href,
+  CS: new URL('../../../images/pillar/CS.png', import.meta.url).href,
+  DU: new URL('../../../images/pillar/DU.png', import.meta.url).href,
+};
+
+const PILLAR_IMAGE_KEYS: PillarImageKey[] = ['RS', 'CS', 'DU'];
+
 const SHELF_IMAGE_KEYS: ShelfImageKey[] = ['normal', 'drawer', 'hanger'];
 
 const WALL_IMAGE_PATHS: Record<WallImageKey, string> = {
@@ -74,6 +90,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
 export function useImageAssets() {
   const cornerImages = ref<CornerImages>({ ...INITIAL_CORNER_IMAGES });
   const shelfImages = ref<ShelfImages>({ ...INITIAL_SHELF_IMAGES });
+  const pillarImages = ref<PillarImages>({ ...INITIAL_PILLAR_IMAGES });
   const wallImages = ref<WallImages>({ ...INITIAL_WALL_IMAGES });
 
   onMounted(() => {
@@ -108,6 +125,20 @@ export function useImageAssets() {
       .catch(console.error);
 
     Promise.all(
+      PILLAR_IMAGE_KEYS.map((key) =>
+        loadImage(PILLAR_IMAGE_PATHS[key]).then((image) => ({ key, image }))
+      )
+    )
+      .then((loaded) => {
+        const mapped = loaded.reduce<PillarImages>((acc, { key, image }) => {
+          acc[key] = image;
+          return acc;
+        }, { ...INITIAL_PILLAR_IMAGES });
+        pillarImages.value = mapped;
+      })
+      .catch(console.error);
+
+    Promise.all(
       WALL_IMAGE_KEYS.map((key) =>
         loadImage(WALL_IMAGE_PATHS[key]).then((image) => ({ key, image }))
       )
@@ -122,5 +153,5 @@ export function useImageAssets() {
       .catch(console.error);
   });
 
-  return { cornerImages, shelfImages, wallImages };
+  return { cornerImages, shelfImages, pillarImages, wallImages };
 }

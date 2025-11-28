@@ -47,6 +47,9 @@ export interface Pillar {
   pillarStyle?: 'RS' | 'CS' | 'DU';  // 기둥 스타일: 후면 싱글, 센터 싱글, 듀얼
 }
 
+// 기둥 스타일별 이미지 매핑
+export type PillarImages = Record<'RS' | 'CS' | 'DU', HTMLImageElement | null>;
+
 // 선반 타입 정의 (공통)
 export type ShelfType = 'normal' | 'hanger' | 'drawer';
 export type ShelfMaterial = 'wood' | 'white_sheet';
