@@ -1229,7 +1229,7 @@ const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
         return shelf;
       }
 
-      const shelfThickness = (shelf.type && FURNITURE_DIMENSIONS[shelf.type]) ? FURNITURE_DIMENSIONS[shelf.type].heightMm : 0;
+      const shelfThickness = shelf.thickness ?? ((shelf.type && FURNITURE_DIMENSIONS[shelf.type]) ? FURNITURE_DIMENSIONS[shelf.type].heightMm : 0);
       const accessoryCenterY = shelf.y + shelfThickness / 2 + product.heightMm / 2;
 
       accessories.push({
@@ -1354,8 +1354,7 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
   const settings = store.settings.value;
   let newHeightMm: number;
   if (samePairShelves.length === 0) {
-    // 제품 기본 y가 있으면 우선 사용, 없으면 설정값
-    newHeightMm = product.y ?? settings.shelfCreateDefaultOffsetMm;
+    newHeightMm = settings.shelfCreateDefaultOffsetMm;
   } else {
     const bottommostShelf = samePairShelves.reduce((bottommost, current) =>
       current.y > bottommost.y ? current : bottommost
@@ -1386,6 +1385,7 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     x: shelfLength,
     y: newHeightMm,
     z: 0,
+    thickness: product.thickness,
     t_limit: product.t_limit,
     b_limit: product.b_limit,
     material: product.material,

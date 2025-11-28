@@ -22,7 +22,7 @@ export function checkShelfFurnitureCollision(
 ): { hasCollision: boolean; validYMm: number } {
   const shelfType = shelf.type || 'normal';
   const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
-  const shelfThickness = shelfDimensions.heightMm;
+  const shelfThickness = shelf.thickness ?? shelfDimensions.heightMm;
 
   // 선반의 AABB 경계 (b_limit 포함)
   const shelfLeft = sectionStartXMm;
@@ -79,7 +79,7 @@ export function findShelfFurnitureCollisions(
 ): PlacedFurniture[] {
   const shelfType = shelf.type || 'normal';
   const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
-  const shelfThickness = shelfDimensions.heightMm;
+  const shelfThickness = shelf.thickness ?? shelfDimensions.heightMm;
 
   const shelfLeft = sectionStartXMm;
   const shelfRight = sectionStartXMm + sectionWidth;
@@ -111,7 +111,7 @@ export function checkShelfAccessoryCollision(
 ): { hasCollision: boolean; validYMm: number } {
   const shelfType = shelf.type || 'normal';
   const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
-  const shelfThickness = shelfDimensions.heightMm;
+  const shelfThickness = shelf.thickness ?? shelfDimensions.heightMm;
 
   const shelfLeft = sectionStartXMm;
   const shelfRight = sectionStartXMm + sectionWidth;
@@ -319,7 +319,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       : null;
 
     const targetDimensions = FURNITURE_DIMENSIONS[targetShelf.type || 'normal'];
-    const targetThickness = targetDimensions.heightMm;
+    const targetThickness = targetShelf.thickness ?? targetDimensions.heightMm;
 
     // 같은 기둥 쌍의 선반들만 체크 (X축 범위가 겹치는 선반들)
     const samePairShelves = shelves.filter(
@@ -357,7 +357,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       // 모든 선반과의 충돌 및 간격 체크 (거리 계산 기반)
       for (const otherShelf of samePairShelves) {
         const otherDimensions = FURNITURE_DIMENSIONS[otherShelf.type || 'normal'];
-        const otherThickness = otherDimensions.heightMm;
+        const otherThickness = otherShelf.thickness ?? otherDimensions.heightMm;
         const spacing = getRequiredSpacing(
           testHeightMm > otherShelf.y ? targetShelf : otherShelf,
           testHeightMm > otherShelf.y ? otherShelf : targetShelf
@@ -407,7 +407,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       // 다른 선반들과의 충돌 체크 (거리 계산 기반)
       for (const otherShelf of samePairShelves) {
         const otherDimensions = FURNITURE_DIMENSIONS[otherShelf.type || 'normal'];
-        const otherThickness = otherDimensions.heightMm;
+        const otherThickness = otherShelf.thickness ?? otherDimensions.heightMm;
         
         let distance: number;
         if (newHeightMm > otherShelf.y) {
@@ -459,12 +459,15 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
               break;
             }
             if (!collision.isBoundary && collision.shelf) {
-              const collisionTop = collision.shelf.y + 
-                (FURNITURE_DIMENSIONS[collision.shelf.type || 'normal'].heightMm / 2);
-              const topmostTop = topmostCollision.isBoundary 
+              const collisionShelfDim = FURNITURE_DIMENSIONS[collision.shelf.type || 'normal'];
+              const collisionTop = collision.shelf.y +
+                ((collision.shelf.thickness ?? collisionShelfDim.heightMm) / 2);
+              const topmostTop = topmostCollision.isBoundary
                 ? (topmostCollision.height === maxAllowedCenter ? maxAllowedCenter + targetThickness / 2 : -Infinity)
-                : (topmostCollision.shelf ? topmostCollision.shelf.y + 
-                   (FURNITURE_DIMENSIONS[topmostCollision.shelf.type || 'normal'].heightMm / 2) : -Infinity);
+                : (topmostCollision.shelf ? (() => {
+                    const topmostDim = FURNITURE_DIMENSIONS[topmostCollision.shelf.type || 'normal'];
+                    return topmostCollision.shelf.y + ((topmostCollision.shelf.thickness ?? topmostDim.heightMm) / 2);
+                  })() : -Infinity);
               if (collisionTop > topmostTop) {
                 topmostCollision = collision;
               }
@@ -480,7 +483,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
             const collisionShelf = topmostCollision.shelf;
             const collisionShelfType = collisionShelf.type || 'normal';
             const collisionDimensions = FURNITURE_DIMENSIONS[collisionShelfType];
-            const collisionThickness = collisionDimensions.heightMm;
+            const collisionThickness = collisionShelf.thickness ?? collisionDimensions.heightMm;
             const spacing = getRequiredSpacing(targetShelf, collisionShelf);
             // 선반 중심 = 충돌 선반 상단 + 간격 + 내 두께/2
             candidateHeight = collisionShelf.y + collisionThickness / 2 + spacing + targetThickness / 2;
@@ -496,12 +499,15 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
               break;
             }
             if (!collision.isBoundary && collision.shelf) {
-              const collisionBottom = collision.shelf.y - 
-                (FURNITURE_DIMENSIONS[collision.shelf.type || 'normal'].heightMm / 2);
+              const collisionShelfDim = FURNITURE_DIMENSIONS[collision.shelf.type || 'normal'];
+              const collisionBottom = collision.shelf.y -
+                ((collision.shelf.thickness ?? collisionShelfDim.heightMm) / 2);
               const bottommostBottom = bottommostCollision.isBoundary
                 ? (bottommostCollision.height === boundaryLimits.min ? boundaryLimits.min - targetThickness / 2 : Infinity)
-                : (bottommostCollision.shelf ? bottommostCollision.shelf.y - 
-                   (FURNITURE_DIMENSIONS[bottommostCollision.shelf.type || 'normal'].heightMm / 2) : Infinity);
+                : (bottommostCollision.shelf ? (() => {
+                    const bottommostDim = FURNITURE_DIMENSIONS[bottommostCollision.shelf.type || 'normal'];
+                    return bottommostCollision.shelf.y - ((bottommostCollision.shelf.thickness ?? bottommostDim.heightMm) / 2);
+                  })() : Infinity);
               if (collisionBottom < bottommostBottom) {
                 bottommostCollision = collision;
               }
@@ -517,7 +523,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
             const collisionShelf = bottommostCollision.shelf;
             const collisionShelfType = collisionShelf.type || 'normal';
             const collisionDimensions = FURNITURE_DIMENSIONS[collisionShelfType];
-            const collisionThickness = collisionDimensions.heightMm;
+            const collisionThickness = collisionShelf.thickness ?? collisionDimensions.heightMm;
             const spacing = getRequiredSpacing(collisionShelf, targetShelf);
             // 선반 중심 = 충돌 선반 하단 - 간격 - 내 두께/2
             candidateHeight = collisionShelf.y - collisionThickness / 2 - spacing - targetThickness / 2;
@@ -545,7 +551,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
 
     for (const shelf of samePairShelves) {
       const otherDimensions = FURNITURE_DIMENSIONS[shelf.type || 'normal'];
-      const otherThickness = otherDimensions.heightMm;
+      const otherThickness = shelf.thickness ?? otherDimensions.heightMm;
 
       // 조정된 높이 기준으로 간격 체크
       // heightMm은 중심이므로, 선반 간 거리 = 내 하단과 다른 선반 상단 간의 거리

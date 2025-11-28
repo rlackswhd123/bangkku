@@ -67,7 +67,7 @@
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
                       <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × {{ product.thickness || 20 }} × {{ product.z }} (mm)</div>
                       <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>
@@ -95,7 +95,7 @@
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
                       <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × {{ product.thickness || 20 }} × {{ product.z }} (mm)</div>
                       <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>

@@ -63,6 +63,7 @@ export interface Shelf {
   x: number;               // 선반 폭/길이 (mm)
   y: number;               // 높이 위치 (mm) (카탈로그에선 0)
   z: number;               // 깊이 (mm)
+  thickness?: number;      // 선반 자체의 두께/높이 (mm) - 미지정 시 FURNITURE_DIMENSIONS 사용
   t_limit: number;         // 상단 제약
   b_limit: number;         // 하단 제약
   accessories?: PlacedAccessory[]; // 선반 위 소품 목록

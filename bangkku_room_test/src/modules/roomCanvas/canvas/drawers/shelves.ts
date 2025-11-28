@@ -43,10 +43,8 @@ export function drawShelf(
   const shelfType = shelf.type || 'normal';
   const shelfImage = shelf.image ? getCachedImage(shelf.image) : shelfImages[shelfType];
   const shelfDimensions = shelfType ? FURNITURE_DIMENSIONS[shelfType] : FURNITURE_DIMENSIONS.normal;
-  const drawHeight = Math.max(
-    shelfDimensions.heightMm * scaleInfo.scaleY,
-    PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX
-  );
+  const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+  const drawHeight = shelfThicknessMm * scaleInfo.scaleY;
 
   if (shelfImage && shelfImage.complete && shelfImage.naturalWidth > 0 && shelfImage.naturalHeight > 0) {
     const drawWidth = shelfWidth;
