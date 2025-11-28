@@ -1,0 +1,52 @@
+{
+  "accessories": [
+    {
+      "prodKey": 8001,
+      "name": "디퓨저",
+      "widthMm": 120,
+      "heightMm": 200,
+      "price": 19000,
+      "image": "/src/images/accessory/디퓨저.png"
+    },
+    {
+      "prodKey": 8002,
+      "name": "무드등",
+      "widthMm": 150,
+      "heightMm": 220,
+      "price": 29000,
+      "image": "/src/images/accessory/무드등.png"
+    },
+    {
+      "prodKey": 8003,
+      "name": "미니어처",
+      "widthMm": 120,
+      "heightMm": 180,
+      "price": 24000,
+      "image": "/src/images/accessory/미니어처.png"
+    },
+    {
+      "prodKey": 8004,
+      "name": "액자",
+      "widthMm": 300,
+      "heightMm": 250,
+      "price": 22000,
+      "image": "/src/images/accessory/액자.png"
+    },
+    {
+      "prodKey": 8005,
+      "name": "테스트1",
+      "widthMm": 600,
+      "heightMm": 180,
+      "price": 24000,
+      "image": "/src/images/accessory/미니어처.png"
+    },
+    {
+      "prodKey": 8006,
+      "name": "테스트2",
+      "widthMm": 120,
+      "heightMm": 600,
+      "price": 24000,
+      "image": "/src/images/accessory/미니어처.png"
+    }
+  ]
+}
