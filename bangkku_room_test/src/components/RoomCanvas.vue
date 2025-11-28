@@ -617,7 +617,6 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   if (!scaleInfo.value) return;
 
-  emit('objectSelect', null, null);
   const canvas = canvasRef.value;
   if (!canvas) return;
 

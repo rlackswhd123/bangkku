@@ -198,7 +198,7 @@ export function useRoomCanvasRenderer({
 
       const currentShape = store.roomShape.value;
       const labelColor = (faceId: FaceId) =>
-        isFaceActiveInShape(currentShape, faceId) ? '#222222' : '#b3b3b3';
+        isFaceActiveInShape(currentShape, faceId) ? '#222222' : '#777777';
 
       const labelY = redRect.y - verticalPadding + 40;
 
