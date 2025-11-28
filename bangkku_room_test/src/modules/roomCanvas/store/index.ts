@@ -31,7 +31,8 @@ function findLeftmostSlot(
   furnituresOnFace: PlacedFurniture[],
   furnitureWidthMm: number,
   furnitureHeightMm: number,
-  gridSizeMm: number
+  gridSizeMm: number,
+  faceWidthMm: number
 ): number | null {
   const sortedRects = rects
     .filter(rect => rect.width >= furnitureWidthMm && rect.height >= furnitureHeightMm)
@@ -69,7 +70,7 @@ function findLeftmostSlot(
         Math.max(snapped, rectStart),
         seg.end - furnitureWidthMm
       );
-      const fits = candidate + furnitureWidthMm <= seg.end;
+      const fits = candidate >= 0 && candidate + furnitureWidthMm <= seg.end && candidate + furnitureWidthMm <= faceWidthMm;
       if (fits) {
         return candidate;
       }
@@ -85,7 +86,8 @@ function findNearestSlot(
   furnitureWidthMm: number,
   furnitureHeightMm: number,
   gridSizeMm: number,
-  desiredXMm: number
+  desiredXMm: number,
+  faceWidthMm: number
 ): number | null {
   const sortedRects = rects
     .filter(rect => rect.width >= furnitureWidthMm && rect.height >= furnitureHeightMm)
@@ -122,7 +124,7 @@ function findNearestSlot(
         Math.max(snapped, seg.start),
         seg.end - furnitureWidthMm
       );
-      if (candidate + furnitureWidthMm > seg.end) continue;
+      if (candidate < 0 || candidate + furnitureWidthMm > seg.end || candidate + furnitureWidthMm > faceWidthMm) continue;
       const dist = Math.abs(desiredXMm - candidate);
       if (dist < bestDistance) {
         bestDistance = dist;
@@ -577,7 +579,8 @@ export function useRoomStore() {
       face.furnitures,
       furniture.widthMm,
       furniture.heightMm,
-      gridSize
+      gridSize,
+      face.face_x
     );
 
     if (candidateX === null) {
@@ -652,7 +655,8 @@ export function useRoomStore() {
       furnitureWidthMm,
       furnitureHeightMm,
       globalSettings.value.gridSizeMm,
-      desiredXMm
+      desiredXMm,
+      face.face_x
     );
   };
 
