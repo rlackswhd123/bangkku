@@ -87,6 +87,7 @@
       :products="shelfProducts"
       :accessories="accessoryProducts"
       :default-category="shelfAddModal?.defaultCategory || 'shelf'"
+      :target-shelf-key="shelfAddModal?.targetShelfKey"
       :get-product-image="getProductImage"
       @close="shelfAddModal = null"
       @select="handleShelfSelectFromAddModal"
@@ -402,6 +403,7 @@ const shelfAddModal = ref<{
   x: number;
   y: number;
   defaultCategory?: 'shelf' | 'item';
+  targetShelfKey?: number;
 } | null>(null);
 
 // 기둥 스타일 선택 상태
@@ -616,6 +618,7 @@ const handleMouseDown = (e: MouseEvent) => {
           x: button.x,
           y: button.y,
           defaultCategory: 'item',
+          targetShelfKey: button.shelfKey,
         };
         return;
       }
@@ -959,8 +962,36 @@ const handleFurnitureSelectFromModal = (product: { prodKey: number; name: string
 };
 
 const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
-  emit('showToast', `${product.name} 소품 선택됨 (배치는 추후 지원 예정)`);
+  if (!shelfAddModal.value) return;
+  const targetShelfKey = shelfAddModal.value.targetShelfKey;
+  const targetSectionKey = shelfAddModal.value.sectionKey;
+
+  const updatedSections = activeFaceSections.value.map((section: Section) => {
+    if (section.sectionKey !== targetSectionKey) return section;
+
+    const updatedShelves = section.shelves.map((shelf: Shelf) => {
+      if (shelf.shelfKey !== targetShelfKey) return shelf;
+      const accessories = shelf.accessories ? [...shelf.accessories] : [];
+      accessories.push({
+        ...product,
+        id: createTempKey(),
+        shelfKey: shelf.shelfKey,
+      });
+      return {
+        ...shelf,
+        accessories,
+      };
+    });
+
+    return {
+      ...section,
+      shelves: updatedShelves,
+    };
+  });
+
+  store.setActiveFaceSections(updatedSections);
   shelfAddModal.value = null;
+  emit('showToast', `${product.name} 소품을 추가했습니다.`);
 };
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {

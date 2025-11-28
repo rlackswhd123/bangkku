@@ -168,13 +168,14 @@ const props = defineProps<{
   products: Shelf[];
   accessories: AccessoryProduct[];
   defaultCategory?: 'shelf' | 'item';
+  targetShelfKey?: number;
   getProductImage: (type: 'normal' | 'hanger' | 'drawer') => { src: string } | null;
 }>();
 
 const emit = defineEmits<{
   close: [];
   select: [product: Shelf];
-  selectAccessory: [product: AccessoryProduct];
+  selectAccessory: [product: AccessoryProduct, targetShelfKey?: number];
 }>();
 
 // 카테고리 상태: 선반 / 소품
@@ -217,7 +218,7 @@ const handleProductSelect = (product: Shelf) => {
 };
 
 const handleAccessorySelect = (product: AccessoryProduct) => {
-  emit('selectAccessory', product);
+  emit('selectAccessory', product, props.targetShelfKey);
 };
 
 // 이벤트 핸들러

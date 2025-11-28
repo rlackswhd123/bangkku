@@ -2,7 +2,7 @@
 import { useRoomStore } from '../index';
 import { FaceId } from '../../models/roomShape';
 import { RoomFaceState } from '../../models/roomFace';
-import { Pillar, Shelf } from '../../../../types';
+import { Pillar, Shelf, Section } from '../../../../types';
 
 /**
  * 면 전환 시 호출할 액션 (필요시 부가 로직 추가 가능)
@@ -56,11 +56,17 @@ export function deleteShelfFromActiveFace(shelfKey: number) {
   const store = useRoomStore();
   const sections = store.activeFaceSections.value;
   
-  const updatedSections = sections.map(section => ({
-    ...section,
-    shelves: section.shelves.filter(s => s.shelfKey !== shelfKey)
-  }));
+  const updatedSections: Section[] = sections.map((section) => {
+    const clonedShelves = section.shelves.map((shelf) => ({
+      ...shelf,
+      accessories: shelf.accessories ? [...shelf.accessories] : undefined,
+    }));
+    const filteredShelves = clonedShelves.filter((s) => s.shelfKey !== shelfKey);
+    return {
+      ...section,
+      shelves: filteredShelves,
+    };
+  });
   
   store.setActiveFaceSections(updatedSections);
 }
-

@@ -62,6 +62,7 @@ export interface Shelf {
   z: number;               // 깊이 (mm)
   t_limit: number;         // 상단 제약
   b_limit: number;         // 하단 제약
+  accessories?: PlacedAccessory[]; // 선반 위 소품 목록
   // 상품 정보 (카탈로그용, 선택적)
   name?: string;           // 상품명
   material?: ShelfMaterial; // 재질
