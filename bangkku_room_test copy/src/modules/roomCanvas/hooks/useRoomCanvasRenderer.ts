@@ -15,7 +15,7 @@ import {
   drawItemAddButtons,
   calculateItemAddButtonPositions,
 } from '../canvas/drawers/buttons';
-import { drawFurniture } from '../canvas/drawers/furniture';
+import { drawFurniture, drawGhostFurniture } from '../canvas/drawers/furniture';
 import { drawPillar, drawGhostPillar } from '../canvas/drawers/pillars';
 import { drawShelf, drawGhostShelf, drawCornerShelfImages } from '../canvas/drawers/shelves';
 import { drawPillarSpacings, drawShelfSpacings } from '../canvas/drawers/spacings';
@@ -259,8 +259,18 @@ export function useRoomCanvasRenderer({
 
     // 바닥 가구 그리기
     currentFurnitures.forEach((furniture) => {
-      drawFurniture(ctx, furniture, currentScaleInfo);
+      const isGhost = currentDragState.type === 'furniture' && currentDragState.targetKey === furniture.id;
+      if (!isGhost) {
+        drawFurniture(ctx, furniture, currentScaleInfo);
+      }
     });
+
+    if (currentDragState.type === 'furniture' && currentDragState.targetKey && currentDragState.ghostXMm !== undefined) {
+      const ghostFurniture = currentFurnitures.find(f => f.id === currentDragState.targetKey);
+      if (ghostFurniture) {
+        drawGhostFurniture(ctx, ghostFurniture, currentDragState.ghostXMm, currentScaleInfo);
+      }
+    }
 
     // Rect 미리보기 그리기
     const currentShowRectPreview = unref(showRectPreview);

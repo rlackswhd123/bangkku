@@ -79,6 +79,61 @@ function findLeftmostSlot(
   return null;
 }
 
+function findNearestSlot(
+  rects: ReturnType<typeof calculatePlacementRects>,
+  furnituresOnFace: PlacedFurniture[],
+  furnitureWidthMm: number,
+  furnitureHeightMm: number,
+  gridSizeMm: number,
+  desiredXMm: number
+): number | null {
+  const sortedRects = rects
+    .filter(rect => rect.width >= furnitureWidthMm && rect.height >= furnitureHeightMm)
+    .sort((a, b) => a.x - b.x);
+
+  let bestX: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const rect of sortedRects) {
+    const rectStart = rect.x;
+    const rectEnd = rect.x + rect.width;
+
+    const furnituresInRect = furnituresOnFace
+      .filter(f => f.xMm < rectEnd && f.xMm + f.widthMm > rectStart)
+      .sort((a, b) => a.xMm - b.xMm);
+
+    const segments: Array<{ start: number; end: number }> = [];
+    let cursor = rectStart;
+    for (const furn of furnituresInRect) {
+      const gapEnd = furn.xMm;
+      if (gapEnd > cursor) {
+        segments.push({ start: cursor, end: gapEnd });
+      }
+      cursor = Math.max(cursor, furn.xMm + furn.widthMm);
+    }
+    if (cursor < rectEnd) {
+      segments.push({ start: cursor, end: rectEnd });
+    }
+
+    for (const seg of segments) {
+      if (seg.end - seg.start < furnitureWidthMm) continue;
+      const snapped = snapToGrid(desiredXMm, gridSizeMm);
+      const candidate = Math.min(
+        Math.max(snapped, seg.start),
+        seg.end - furnitureWidthMm
+      );
+      if (candidate + furnitureWidthMm > seg.end) continue;
+      const dist = Math.abs(desiredXMm - candidate);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestX = candidate;
+      }
+    }
+  }
+
+  return bestX;
+}
+
 /**
  * 방 스토어 훅
  */
@@ -570,6 +625,38 @@ export function useRoomStore() {
   };
 
   /**
+   * 원하는 위치에 가장 가까운 유효 슬롯을 찾습니다.
+   */
+  const findNearestFurnitureSlotOnFace = (
+    faceKey: FaceId,
+    furnitureWidthMm: number,
+    furnitureHeightMm: number,
+    desiredXMm: number,
+    excludeFurnitureId?: number
+  ): number | null => {
+    const face = roomState.value.faces[faceKey];
+    if (!face) return null;
+
+    const placementRects = calculatePlacementRects(
+      `face-${faceKey}`,
+      face.sections,
+      face.pillars,
+      face.face_x,
+      face.face_y
+    );
+
+    const furnitures = face.furnitures.filter(f => f.id !== excludeFurnitureId);
+    return findNearestSlot(
+      placementRects,
+      furnitures,
+      furnitureWidthMm,
+      furnitureHeightMm,
+      globalSettings.value.gridSizeMm,
+      desiredXMm
+    );
+  };
+
+  /**
    * 특정 면의 스냅샷을 업데이트합니다.
    * 섹션 삭제 등으로 면이 변경되었을 때 호출됩니다.
    */
@@ -660,5 +747,6 @@ export function useRoomStore() {
     setActiveFurniture,
     applyActiveFurnitureToCurrentFace,
     canPlaceHereOnFace,
+    findNearestFurnitureSlotOnFace,
   };
 }

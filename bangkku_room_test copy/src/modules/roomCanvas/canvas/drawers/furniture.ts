@@ -25,3 +25,20 @@ export function drawFurniture(ctx: CanvasRenderingContext2D, furniture: PlacedFu
   ctx.fillText(furniture.name || `가구 ${furniture.prodKey}`, xPx + widthPx / 2, topPx + heightPx / 2);
   ctx.restore();
 }
+
+export function drawGhostFurniture(ctx: CanvasRenderingContext2D, furniture: PlacedFurniture, ghostXMm: number, scaleInfo: ScaleInfo) {
+  const ghostFurniture = { ...furniture, xMm: ghostXMm };
+  const xPx = mmToPxX(ghostFurniture.xMm, scaleInfo);
+  const widthPx = ghostFurniture.widthMm * scaleInfo.scaleX;
+
+  const bottomPx = mmToPxY(ghostFurniture.yMm, scaleInfo);
+  const topPx = mmToPxY(ghostFurniture.yMm + ghostFurniture.heightMm, scaleInfo);
+  const heightPx = bottomPx - topPx;
+
+  ctx.save();
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = 'rgba(0, 122, 255, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(xPx, topPx, widthPx, heightPx);
+  ctx.restore();
+}

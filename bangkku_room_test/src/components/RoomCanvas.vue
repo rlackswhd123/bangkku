@@ -629,22 +629,17 @@ const handleMouseMove = (e: MouseEvent) => {
     if (targetFurniture) {
       const offsetXMm = dragState.value.offsetXMm ?? 0;
       const newXMm = pxToMmX(x, scaleInfo.value) - offsetXMm;
-      const settings = store.settings.value;
-      const snappedXMm = snapToGrid(newXMm, settings.gridSizeMm);
-      const maxXMm = activeFaceMetrics.value.face_x - targetFurniture.widthMm;
-      const clampedXMm = Math.max(0, Math.min(maxXMm, snappedXMm));
-
-      const canPlace = store.canPlaceHereOnFace(
+      const slotXMm = store.findNearestFurnitureSlotOnFace(
         store.activeFaceId.value,
         targetFurniture.widthMm,
-        clampedXMm,
-        targetFurniture.heightMm
+        targetFurniture.heightMm,
+        newXMm,
+        targetFurniture.id
       );
-      const overlap = hasFurnitureCollision(clampedXMm, targetFurniture.widthMm, targetFurniture.id);
 
-      if (canPlace && !overlap) {
-        dragState.value.ghostXMm = clampedXMm;
-        dragState.value.lastValidXMm = clampedXMm;
+      if (slotXMm !== null) {
+        dragState.value.ghostXMm = slotXMm;
+        dragState.value.lastValidXMm = slotXMm;
       } else if (dragState.value.lastValidXMm !== undefined) {
         dragState.value.ghostXMm = dragState.value.lastValidXMm;
       }

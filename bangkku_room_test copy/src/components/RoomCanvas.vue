@@ -330,6 +330,30 @@ const getTotalShelvesCountInSectionsWithPillar = (pillarKey: number): number => 
   return sectionsWithPillar.reduce((sum, s) => sum + s.shelves.length, 0);
 };
 
+/**
+ * 좌표가 가구 영역 안인지 확인
+ */
+const isPointInsideFurniture = (furniture: PlacedFurniture, px: number, py: number): boolean => {
+  if (!scaleInfo.value) return false;
+  const left = mmToPxX(furniture.xMm, scaleInfo.value);
+  const right = mmToPxX(furniture.xMm + furniture.widthMm, scaleInfo.value);
+  const top = mmToPxY(furniture.heightMm, scaleInfo.value);
+  const bottom = mmToPxY(0, scaleInfo.value);
+  return px >= left && px <= right && py >= top && py <= bottom;
+};
+
+/**
+ * 다른 가구와 겹치는지 검사
+ */
+const hasFurnitureCollision = (candidateXMm: number, widthMm: number, excludeId?: number): boolean => {
+  return activeFaceFurnitures.value.some((f) => {
+    if (excludeId != null && f.id === excludeId) return false;
+    const candidateEnd = candidateXMm + widthMm;
+    const existingEnd = f.xMm + f.widthMm;
+    return candidateXMm < existingEnd && candidateEnd > f.xMm;
+  });
+};
+
 // 선반 추가 모달 상태
 const shelfAddModal = ref<{
   show: boolean;
@@ -379,6 +403,24 @@ const handleMouseDown = (e: MouseEvent) => {
   const { redRect } = scaleInfo.value;
   const pillars = activeFacePillars.value;
   const sections = activeFaceSections.value;
+  const furnitures = activeFaceFurnitures.value;
+
+  // 가구 드래그 시작 체크 (바닥 가구)
+  for (const furniture of furnitures) {
+    if (isPointInsideFurniture(furniture, x, y)) {
+      const furnCenterOffsetMm = pxToMmX(x, scaleInfo.value) - furniture.xMm;
+      dragState.value = {
+        type: 'furniture',
+        targetKey: furniture.id,
+        startX: x,
+        originalX: furniture.xMm,
+        ghostXMm: furniture.xMm,
+        lastValidXMm: furniture.xMm,
+        offsetXMm: furnCenterOffsetMm,
+      };
+      return;
+    }
+  }
 
   const rightmostPillar = pillars.reduce<Pillar | null>(
     (rightmost, current) => (!rightmost || current.x > rightmost.x ? current : rightmost),
@@ -581,6 +623,30 @@ const handleMouseMove = (e: MouseEvent) => {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
+  // 가구 드래그
+  if (dragState.value.type === 'furniture' && dragState.value.targetKey != null) {
+    const targetFurniture = activeFaceFurnitures.value.find((f) => f.id === dragState.value.targetKey);
+    if (targetFurniture) {
+      const offsetXMm = dragState.value.offsetXMm ?? 0;
+      const newXMm = pxToMmX(x, scaleInfo.value) - offsetXMm;
+      const slotXMm = store.findNearestFurnitureSlotOnFace(
+        store.activeFaceId.value,
+        targetFurniture.widthMm,
+        targetFurniture.heightMm,
+        newXMm,
+        targetFurniture.id
+      );
+
+      if (slotXMm !== null) {
+        dragState.value.ghostXMm = slotXMm;
+        dragState.value.lastValidXMm = slotXMm;
+      } else if (dragState.value.lastValidXMm !== undefined) {
+        dragState.value.ghostXMm = dragState.value.lastValidXMm;
+      }
+    }
+    return;
+  }
+
   // 기둥 드래그
   if (dragState.value.type === 'pillar' && dragState.value.targetKey != null) {
     const newXMm = pxToMmX(x, scaleInfo.value);
@@ -666,6 +732,19 @@ const handleMouseMove = (e: MouseEvent) => {
  * 드래그 종료 시 위치를 스냅합니다.
  */
 const handleMouseUp = () => {
+  if (dragState.value.type === 'furniture' && dragState.value.targetKey != null) {
+    const targetFurniture = activeFaceFurnitures.value.find((f) => f.id === dragState.value.targetKey);
+    if (targetFurniture) {
+      const finalXMm = dragState.value.lastValidXMm ?? targetFurniture.xMm;
+      const updated = activeFaceFurnitures.value.map((f) =>
+        f.id === targetFurniture.id ? { ...f, xMm: finalXMm } : f
+      );
+      store.setActiveFaceFurnitures(updated);
+    }
+    dragState.value = { type: null, targetKey: null };
+    return;
+  }
+
   if (dragState.value.type === 'pillar' && dragState.value.targetKey != null && scaleInfo.value) {
     const draggedPillar = activeFacePillars.value.find((p) => p.pillarKey === dragState.value.targetKey);
     if (draggedPillar) {
