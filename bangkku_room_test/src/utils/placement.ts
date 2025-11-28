@@ -43,35 +43,69 @@ export function calculatePlacementRects(
   // 센터/듀얼 기둥이 있는 경우: 기둥 기준으로 구간을 나눠 Rect 생성
   // 섹션 여부와 무관하게 기둥 경계로 자른다.
   if (blockerPillars.length > 0) {
+    const pillarXMap = new Map<number, number>();
+    sortedPillars.forEach(p => pillarXMap.set(p.pillarKey, p.x));
+
+    const getSectionSpan = (section: Section): { start: number; end: number } | null => {
+      const start = pillarXMap.get(section.startPillarKey);
+      const end = pillarXMap.get(section.endPillarKey);
+      if (start === undefined || end === undefined) return null;
+      return { start, end };
+    };
+
     let startX = 0;
     blockerPillars.forEach((pillar, idx) => {
       const endX = pillar.x;
       if (endX > startX) {
+        const segmentSections = sections
+          .map(s => ({ section: s, span: getSectionSpan(s) }))
+          .filter((s): s is { section: Section; span: { start: number; end: number } } =>
+            !!s.span && s.span.start >= startX && s.span.end <= endX
+          );
+
+        const segmentShelves = segmentSections.flatMap(({ section }) => section.shelves);
+        const lowestShelfY = segmentShelves.length > 0
+          ? Math.min(...segmentShelves.map(sh => sh.y))
+          : undefined;
+        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
         rects.push({
           x: startX,
           y: 0,
           width: endX - startX,
-          height: roomHeightMm,
+          height: rectHeight,
           faceId,
           sectionIndices: [], // 기둥 단위 분할이므로 섹션 조합 정보는 비움
           isEmptyWallIncluded: true,
-          lowestShelfY: undefined,
-          affectedShelves: [],
+          lowestShelfY,
+          affectedShelves: segmentShelves.map(sh => sh.shelfKey),
         });
       }
       startX = pillar.x;
       // 마지막 기둥이면 끝까지
       if (idx === blockerPillars.length - 1 && startX < faceWidthMm) {
+        const segmentSections = sections
+          .map(s => ({ section: s, span: getSectionSpan(s) }))
+          .filter((s): s is { section: Section; span: { start: number; end: number } } =>
+            !!s.span && s.span.start >= startX && s.span.end <= faceWidthMm
+          );
+
+        const segmentShelves = segmentSections.flatMap(({ section }) => section.shelves);
+        const lowestShelfY = segmentShelves.length > 0
+          ? Math.min(...segmentShelves.map(sh => sh.y))
+          : undefined;
+        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
+
         rects.push({
           x: startX,
           y: 0,
           width: faceWidthMm - startX,
-          height: roomHeightMm,
+          height: rectHeight,
           faceId,
           sectionIndices: [],
           isEmptyWallIncluded: true,
-          lowestShelfY: undefined,
-          affectedShelves: [],
+          lowestShelfY,
+          affectedShelves: segmentShelves.map(sh => sh.shelfKey),
         });
       }
     });
