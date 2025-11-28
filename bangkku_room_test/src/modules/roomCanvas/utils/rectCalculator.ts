@@ -25,7 +25,7 @@ function checkPillarCollision(
   furnitureWidth: number,  // 가구 폭 (mm)
   section: Section,
   pillars: Pillar[],
-  scaleInfo: ScaleInfo
+  _scaleInfo: ScaleInfo
 ): boolean {
   const sectionPillars = pillars.filter(
     p => p.pillarKey === section.startPillarKey || 
@@ -160,7 +160,7 @@ export function calculateAvailableRects(
   shelves: Shelf[],
   roomHeightMm: number,
   settings: GlobalSettings,
-  scaleInfo: ScaleInfo,
+  _scaleInfo: ScaleInfo,
   furnitureHeightMm: number,
   existingFurniture: Array<{ x: number; y: number; width: number; height: number }> = []
 ): AvailableRect[] {
@@ -169,7 +169,6 @@ export function calculateAvailableRects(
   // 가구는 항상 바닥에 닿아야 함
   const furnitureY = furnitureHeightMm / 2; // 고정값
   const furnitureTop = furnitureY + furnitureHeightMm / 2;
-  const furnitureBottom = 0; // 바닥
   
   // 각 섹션별로 독립적으로 계산
   for (const section of sections) {
@@ -244,7 +243,7 @@ export function calculateAvailableRects(
         sectionWidth,
         section,
         pillars,
-        scaleInfo
+        _scaleInfo
       );
     }
     
@@ -281,4 +280,3 @@ export function calculateAvailableRects(
   
   return rects;
 }
-

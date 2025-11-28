@@ -131,6 +131,25 @@ export interface FurnitureProduct {
   image?: string;
 }
 
+// 소품(액세서리) 메타 정보
+export interface AccessoryProduct {
+  prodKey: number;
+  name: string;
+  widthMm: number;
+  heightMm: number;
+  price?: number;
+  image?: string;
+}
+
+// 배치된 소품 인스턴스 (필요 시 확장)
+export interface PlacedAccessory extends AccessoryProduct {
+  id: number;       // 인스턴스 ID
+  faceKey?: string; // 배치된 면 (FaceId를 직접 참조하지 않고 문자열로 둠)
+  xMm?: number;     // 선반 내 x 위치 (추가 배치 로직에서 활용)
+  yMm?: number;     // 선반 내 y 위치
+  shelfKey?: number; // 연결된 선반 ID
+}
+
 // 선반 타입별 크기 정보
 export const FURNITURE_DIMENSIONS: Record<'normal' | 'hanger' | 'drawer', FurnitureDimensions> = {
   normal: {

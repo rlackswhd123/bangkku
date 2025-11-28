@@ -110,10 +110,33 @@
                 </div>
               </div>
 
-              <!-- 소품 카테고리 (UI만 선반 모달로 분리, 실제 상품 리스트는 추후 추가) -->
-              <div v-if="currentCategory === 'item'" :style="shelfGridStyle">
-                <div :style="emptyCategoryMessageStyle">
-                  소품 상품은 준비 중입니다.
+              <!-- 소품 카테고리 -->
+              <div v-if="currentCategory === 'item'">
+                <div v-if="accessories.length > 0" :style="shelfGridStyle">
+                  <div
+                    v-for="product in accessories"
+                    :key="product.prodKey"
+                    @click="handleAccessorySelect(product)"
+                    :style="shelfCardStyle"
+                    @mouseenter="handleShelfCardHover"
+                    @mouseleave="handleShelfCardLeave"
+                  >
+                    <div :style="shelfImageAreaStyle">
+                      <img
+                        v-if="product.image"
+                        :src="product.image"
+                        :alt="product.name"
+                        :style="shelfPreviewImageStyle"
+                      />
+                      <div v-else :style="shelfPreviewPlaceholderStyle" />
+                    </div>
+                    <div :style="shelfCardTitleStyle">{{ product.name }}</div>
+                    <div :style="shelfCardSizeStyle">{{ product.widthMm }} × {{ product.heightMm }} (mm)</div>
+                    <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
+                  </div>
+                </div>
+                <div v-else :style="emptyCategoryMessageStyle">
+                  소품 상품이 없습니다.
                 </div>
               </div>
             </div>
@@ -136,23 +159,35 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import type { Shelf } from '../../types';
+import { ref, computed, watch } from 'vue';
+import type { Shelf, AccessoryProduct } from '../../types';
 
 const props = defineProps<{
   isOpen: boolean;
   sectionWidth: number;
   products: Shelf[];
+  accessories: AccessoryProduct[];
+  defaultCategory?: 'shelf' | 'item';
   getProductImage: (type: 'normal' | 'hanger' | 'drawer') => { src: string } | null;
 }>();
 
 const emit = defineEmits<{
   close: [];
   select: [product: Shelf];
+  selectAccessory: [product: AccessoryProduct];
 }>();
 
 // 카테고리 상태: 선반 / 소품
-const currentCategory = ref<'shelf' | 'item'>('shelf');
+const currentCategory = ref<'shelf' | 'item'>(props.defaultCategory || 'shelf');
+
+watch(
+  () => props.defaultCategory,
+  (val) => {
+    if (val) {
+      currentCategory.value = val;
+    }
+  }
+);
 
 // 선반 필터링: 추천(섹션 폭에 맞는) / 비추천 분리
 const filteredProducts = computed(() => {
@@ -179,6 +214,10 @@ const filteredProducts = computed(() => {
 
 const handleProductSelect = (product: Shelf) => {
   emit('select', product);
+};
+
+const handleAccessorySelect = (product: AccessoryProduct) => {
+  emit('selectAccessory', product);
 };
 
 // 이벤트 핸들러
@@ -423,4 +462,3 @@ const getCategoryItemStyle = (category: 'shelf' | 'item') => {
   };
 };
 </script>
-

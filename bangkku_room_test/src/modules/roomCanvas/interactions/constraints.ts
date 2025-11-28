@@ -315,8 +315,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
 
       // 모든 선반과의 충돌 및 간격 체크 (거리 계산 기반)
       for (const otherShelf of samePairShelves) {
-        const otherShelfType = otherShelf.type || 'normal';
-        const otherDimensions = FURNITURE_DIMENSIONS[otherShelfType];
+        const otherDimensions = FURNITURE_DIMENSIONS[otherShelf.type || 'normal'];
         const otherThickness = otherDimensions.heightMm;
         const spacing = getRequiredSpacing(
           testHeightMm > otherShelf.y ? targetShelf : otherShelf,
@@ -366,8 +365,7 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
       
       // 다른 선반들과의 충돌 체크 (거리 계산 기반)
       for (const otherShelf of samePairShelves) {
-        const otherShelfType = otherShelf.type || 'normal';
-        const otherDimensions = FURNITURE_DIMENSIONS[otherShelfType];
+        const otherDimensions = FURNITURE_DIMENSIONS[otherShelf.type || 'normal'];
         const otherThickness = otherDimensions.heightMm;
         
         let distance: number;
@@ -505,7 +503,6 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
     let maxAllowedHeight = Infinity;
 
     for (const shelf of samePairShelves) {
-      const otherShelfType = shelf.type || 'normal';
       const otherDimensions = FURNITURE_DIMENSIONS[shelf.type || 'normal'];
       const otherThickness = otherDimensions.heightMm;
 

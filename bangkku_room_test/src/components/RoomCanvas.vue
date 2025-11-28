@@ -85,9 +85,12 @@
       :is-open="!!shelfAddModal"
       :section-width="shelfAddModal?.sectionWidth || 0"
       :products="shelfProducts"
+      :accessories="accessoryProducts"
+      :default-category="shelfAddModal?.defaultCategory || 'shelf'"
       :get-product-image="getProductImage"
       @close="shelfAddModal = null"
       @select="handleShelfSelectFromAddModal"
+      @select-accessory="handleAccessorySelectFromAddModal"
     />
 
     <!-- 상품 구매 모달 -->
@@ -115,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref, computed, type CSSProperties, type Ref, onMounted } from 'vue';
-import { Pillar, Shelf, Section, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo } from '../types';
+import { Pillar, Shelf, Section, DragState, PILLAR_SHELF_CONSTRAINTS, ScaleInfo, AccessoryProduct } from '../types';
 import { mmToPxX, mmToPxY, pxToMmX, pxToMmY, snapToGrid } from '../utils/coordinates';
 import { useImageAssets } from '../modules/roomCanvas/hooks/useImageAssets';
 import { useRoomCanvasRenderer, useCursorUpdater } from '../modules/roomCanvas/hooks/useRoomCanvasRenderer';
@@ -129,6 +132,7 @@ import { useRoomStore } from '../modules/roomCanvas/store';
 import { getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
 import productsData from '../data/products.json';
 import furnituresData from '../data/furnitures.json';
+import accessoriesData from '../data/accessories.json';
 import { type AvailableRect } from '../modules/roomCanvas/utils/rectCalculator';
 import { calculatePlacementRects } from '../utils/placement';
 import { convertPlacementRectsToAvailableRects } from '../utils/placementAdapter';
@@ -185,6 +189,14 @@ onMounted(() => {
   }
 });
 
+// 소품 데이터 로드
+onMounted(() => {
+  if ((accessoriesData as any)?.accessories) {
+    accessoryProducts.value = (accessoriesData as any).accessories as AccessoryProduct[];
+    console.log('로드된 소품 개수:', accessoryProducts.value.length);
+  }
+});
+
 // 상품 구매 모달에서는 선반 제외
 
 // 가구 상품 목록 데이터 (임시로 빈 배열, 나중에 데이터 추가)
@@ -198,6 +210,9 @@ const furnitureProducts = ref<
     image?: string;
   }>
 >([]);
+
+// 소품 상품 목록 데이터
+const accessoryProducts = ref<AccessoryProduct[]>([]);
 
 // Rect 미리보기 표시 여부 및 상품 구매 모달 상태
 const showRectPreview = ref(false);
@@ -351,18 +366,6 @@ const isPointInsideFurniture = (furniture: PlacedFurniture, px: number, py: numb
   return px >= left && px <= right && py >= top && py <= bottom;
 };
 
-/**
- * 다른 가구와 겹치는지 검사
- */
-const hasFurnitureCollision = (candidateXMm: number, widthMm: number, excludeId?: number): boolean => {
-  return activeFaceFurnitures.value.some((f: PlacedFurniture) => {
-    if (excludeId != null && f.id === excludeId) return false;
-    const candidateEnd = candidateXMm + widthMm;
-    const existingEnd = f.xMm + f.widthMm;
-    return candidateXMm < existingEnd && candidateEnd > f.xMm;
-  });
-};
-
 type FurnitureCollisionState = {
   targetLabel: string;
   conflictingFurnitures: PlacedFurniture[];
@@ -398,6 +401,7 @@ const shelfAddModal = ref<{
   endPillarKey: number;
   x: number;
   y: number;
+  defaultCategory?: 'shelf' | 'item';
 } | null>(null);
 
 // 기둥 스타일 선택 상태
@@ -601,9 +605,17 @@ const handleMouseDown = (e: MouseEvent) => {
         y >= button.y - buttonHeight / 2 &&
         y <= button.y + buttonHeight / 2
       ) {
-        // 상품 구매 모달 열기 (소품 카테고리)
-        productPurchaseModal.value = {
+        const targetSection = sections.find((sec: Section) => sec.sectionKey === button.sectionKey);
+        if (!targetSection) continue;
+        shelfAddModal.value = {
           show: true,
+          sectionKey: button.sectionKey,
+          sectionWidth: targetSection.x || 0,
+          startPillarKey: targetSection.startPillarKey,
+          endPillarKey: targetSection.endPillarKey,
+          x: button.x,
+          y: button.y,
+          defaultCategory: 'item',
         };
         return;
       }
@@ -944,6 +956,11 @@ const handleFurnitureSelectFromModal = (product: { prodKey: number; name: string
   } else if (result.message) {
     emit('showToast', result.message);
   }
+};
+
+const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
+  emit('showToast', `${product.name} 소품 선택됨 (배치는 추후 지원 예정)`);
+  shelfAddModal.value = null;
 };
 
 const handleShelfSelectFromAddModal = (product: Shelf) => {
