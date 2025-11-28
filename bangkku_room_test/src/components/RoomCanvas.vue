@@ -129,7 +129,7 @@ import {
   calculateSectionDeleteButtonPositions,
   calculateItemAddButtonPositions,
 } from '../modules/roomCanvas/canvas/drawers/buttons';
-import { createPillarPositionValidator, createShelfPositionValidator, checkShelfFurnitureCollision, findPillarFurnitureCollisions, findShelfFurnitureCollisions } from '../modules/roomCanvas/interactions/constraints';
+import { createPillarPositionValidator, createShelfPositionValidator, checkShelfFurnitureCollision, findPillarFurnitureCollisions, findShelfFurnitureCollisions, checkShelfAccessoryCollision } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
 import { getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
 import productsData from '../data/products.json';
@@ -929,6 +929,25 @@ const handleMouseMove = (e: MouseEvent) => {
             // 가구와 충돌 시 유효한 위치로 조정
             if (furnitureCollision.hasCollision) {
               adjustedHeightMm = furnitureCollision.validYMm;
+            }
+
+            // 소품과 충돌 검사
+            const accessoriesInSection = section.shelves
+              .filter((s) => s.shelfKey !== draggedShelf.shelfKey)
+              .flatMap((s) => s.accessories ?? []);
+
+            if (accessoriesInSection.length > 0) {
+              const accessoryCollision = checkShelfAccessoryCollision(
+                draggedShelf,
+                adjustedHeightMm,
+                startPillar.x,
+                section.x,
+                accessoriesInSection
+              );
+
+              if (accessoryCollision.hasCollision) {
+                adjustedHeightMm = accessoryCollision.validYMm;
+              }
             }
           }
         }

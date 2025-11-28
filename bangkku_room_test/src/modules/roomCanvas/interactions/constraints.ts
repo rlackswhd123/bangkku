@@ -1,5 +1,5 @@
 // constraints.ts: 기둥/선반 이동 시 적용되는 제약 로직을 정의
-import { Pillar, RoomState, Shelf, FURNITURE_DIMENSIONS } from '../../../types';
+import { Pillar, RoomState, Shelf, FURNITURE_DIMENSIONS, PlacedAccessory } from '../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../types';
 import { useRoomStore } from '../store';
 import type { PlacedFurniture } from '../models/furniture';
@@ -97,6 +97,47 @@ export function findShelfFurnitureCollisions(
 
     return xOverlap && yOverlap;
   });
+}
+
+/**
+ * 선반이 소품과 충돌하는지 검사하고 유효한 Y 위치를 반환합니다.
+ */
+export function checkShelfAccessoryCollision(
+  shelf: Shelf,
+  newYMm: number,
+  sectionStartXMm: number,
+  sectionWidth: number,
+  accessories: PlacedAccessory[]
+): { hasCollision: boolean; validYMm: number } {
+  const shelfType = shelf.type || 'normal';
+  const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+  const shelfThickness = shelfDimensions.heightMm;
+
+  const shelfLeft = sectionStartXMm;
+  const shelfRight = sectionStartXMm + sectionWidth;
+  const shelfTop = newYMm + shelfThickness / 2;
+  const shelfBottom = newYMm - shelfThickness / 2;
+
+  let hasCollision = false;
+  let validYMm = newYMm;
+
+  for (const acc of accessories) {
+    const accLeft = acc.xMm ?? sectionStartXMm;
+    const accRight = accLeft + acc.widthMm;
+    const accTop = (acc.yMm ?? newYMm) + acc.heightMm / 2;
+    const accBottom = (acc.yMm ?? newYMm) - acc.heightMm / 2;
+
+    const xOverlap = shelfLeft < accRight && shelfRight > accLeft;
+    const yOverlap = shelfBottom < accTop && shelfTop > accBottom;
+
+    if (xOverlap && yOverlap) {
+      hasCollision = true;
+      const safeYMm = accTop + shelfThickness / 2;
+      validYMm = Math.max(validYMm, safeYMm);
+    }
+  }
+
+  return { hasCollision, validYMm };
 }
 
 /**
