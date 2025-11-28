@@ -102,6 +102,14 @@
       @toggle-rect-preview="showRectPreview = !showRectPreview"
       @select-furniture="handleFurnitureSelectFromModal"
     />
+
+    <FurnitureCollisionModal
+      :is-open="!!furnitureCollisionModal"
+      :target-label="furnitureCollisionModal?.targetLabel || ''"
+      :conflicting-furnitures="furnitureCollisionModal?.conflictingFurnitures || []"
+      @confirm="handleFurnitureCollisionConfirm"
+      @cancel="handleFurnitureCollisionCancel"
+    />
   </div>
 </template>
 
@@ -116,7 +124,7 @@ import {
   calculateSectionDeleteButtonPositions,
   calculateItemAddButtonPositions,
 } from '../modules/roomCanvas/canvas/drawers/buttons';
-import { createPillarPositionValidator, createShelfPositionValidator, checkShelfFurnitureCollision, checkPillarFurnitureCollision } from '../modules/roomCanvas/interactions/constraints';
+import { createPillarPositionValidator, createShelfPositionValidator, checkShelfFurnitureCollision, findPillarFurnitureCollisions, findShelfFurnitureCollisions } from '../modules/roomCanvas/interactions/constraints';
 import { useRoomStore } from '../modules/roomCanvas/store';
 import { getNavigableFaces, getPhysicalAdjacentFace } from '../modules/roomCanvas/models/roomShape';
 import productsData from '../data/products.json';
@@ -127,6 +135,7 @@ import { convertPlacementRectsToAvailableRects } from '../utils/placementAdapter
 import { PlacedFurniture } from '../modules/roomCanvas/models/furniture';
 import ShelfAddModal from './modals/ShelfAddModal.vue';
 import ProductPurchaseModal from './modals/ProductPurchaseModal.vue';
+import FurnitureCollisionModal from './modals/FurnitureCollisionModal.vue';
 
 const emit = defineEmits<{
   scaleChange: [scaleInfo: ScaleInfo];
@@ -354,6 +363,32 @@ const hasFurnitureCollision = (candidateXMm: number, widthMm: number, excludeId?
   });
 };
 
+type FurnitureCollisionState = {
+  targetLabel: string;
+  conflictingFurnitures: PlacedFurniture[];
+  onApply: () => void;
+};
+
+const furnitureCollisionModal = ref<FurnitureCollisionState | null>(null);
+
+const handleFurnitureCollisionCancel = () => {
+  furnitureCollisionModal.value = null;
+};
+
+const handleFurnitureCollisionConfirm = () => {
+  if (!furnitureCollisionModal.value) return;
+  const conflicts = furnitureCollisionModal.value.conflictingFurnitures;
+  const ids = new Set(conflicts.map((f) => f.id));
+  const remaining = activeFaceFurnitures.value.filter((f) => !ids.has(f.id));
+  store.setActiveFaceFurnitures(remaining);
+  furnitureCollisionModal.value.onApply();
+  furnitureCollisionModal.value = null;
+};
+
+const openFurnitureCollisionModal = (state: FurnitureCollisionState) => {
+  furnitureCollisionModal.value = state;
+};
+
 // 선반 추가 모달 상태
 const shelfAddModal = ref<{
   show: boolean;
@@ -442,6 +477,7 @@ const handleMouseDown = (e: MouseEvent) => {
   ) {
     const newPillars: Pillar[] = [...pillars];
     let newSections: Section[] = [];
+    let createdPillars: Pillar[] = [];
 
     if (!rightmostPillar) {
       const first = createPillar(0);
@@ -458,6 +494,7 @@ const handleMouseDown = (e: MouseEvent) => {
       }
 
       newPillars.push(first, second);
+      createdPillars = [first, second];
       newSections = [createSection(first, second)];
     } else {
       const nextX = rightmostPillar.x + settings.defaultSectionWidthMm;
@@ -468,11 +505,45 @@ const handleMouseDown = (e: MouseEvent) => {
 
       const newPillar = createPillar(nextX);
       newPillars.push(newPillar);
+      createdPillars = [newPillar];
       newSections = [createSection(rightmostPillar, newPillar)];
     }
 
-    store.setActiveFacePillars(newPillars);
-    newSections.forEach((section) => store.addSection(section));
+    const applyCreation = () => {
+      store.setActiveFacePillars(newPillars);
+      newSections.forEach((section) => store.addSection(section));
+    };
+
+    // 후면 싱글(RS)은 가구와 겹쳐도 생성 허용
+    if (selectedPillarStyle.value === 'RS') {
+      applyCreation();
+      return;
+    }
+
+    const pillarCollisionFurnitures = createdPillars
+      .flatMap((p) =>
+        findPillarFurnitureCollisions(
+          p.x,
+          furnitures,
+          settings.pillarThicknessMm,
+          roomState.value.roomHeightMm
+        )
+      );
+
+    const uniquePillarCollisions = Array.from(
+      new Map(pillarCollisionFurnitures.map((f) => [f.id, f])).values()
+    );
+
+    if (uniquePillarCollisions.length > 0) {
+      openFurnitureCollisionModal({
+        targetLabel: '기둥/섹션',
+        conflictingFurnitures: uniquePillarCollisions,
+        onApply: applyCreation,
+      });
+      return;
+    }
+
+    applyCreation();
     return;
   }
 
@@ -937,21 +1008,45 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     '복사 확인': { t_limit: newShelf.t_limit, b_limit: newShelf.b_limit }
   });
 
-  // 섹션 중심 구조: 해당 섹션에만 선반 추가 (정렬 유지)
-  const updatedSections = activeFaceSections.value.map((s) => {
-    if (s.sectionKey === sectionKey) {
-      const updatedShelves = [...s.shelves, newShelf].sort((a, b) => a.y - b.y);
-      return {
-        ...s,
-        shelves: updatedShelves,
-      };
-    }
-    return s;
-  });
-  store.setActiveFaceSections(updatedSections);
-  
-  shelfAddModal.value = null;
-  emit('showToast', `${product.name} (${product.materialName}, ${product.x}mm)이(가) 추가되었습니다.`);
+  const applyShelfCreation = () => {
+    const updatedSections = activeFaceSections.value.map((s) => {
+      if (s.sectionKey === sectionKey) {
+        const updatedShelves = [...s.shelves, newShelf].sort((a, b) => a.y - b.y);
+        return {
+          ...s,
+          shelves: updatedShelves,
+        };
+      }
+      return s;
+    });
+    store.setActiveFaceSections(updatedSections);
+    shelfAddModal.value = null;
+    emit('showToast', `${product.name} (${product.materialName}, ${product.x}mm)이(가) 추가되었습니다.`);
+  };
+
+  const shelfCollisionFurnitures = findShelfFurnitureCollisions(
+    newShelf,
+    newHeightMm,
+    startPillar.x,
+    shelfLength,
+    activeFaceFurnitures.value
+  );
+
+  const uniqueShelfCollisions = Array.from(
+    new Map(shelfCollisionFurnitures.map((f) => [f.id, f])).values()
+  );
+
+  if (uniqueShelfCollisions.length > 0) {
+    shelfAddModal.value = null;
+    openFurnitureCollisionModal({
+      targetLabel: '선반',
+      conflictingFurnitures: uniqueShelfCollisions,
+      onApply: applyShelfCreation,
+    });
+    return;
+  }
+
+  applyShelfCreation();
 };
 
 // 기둥 스타일 변경 핸들러

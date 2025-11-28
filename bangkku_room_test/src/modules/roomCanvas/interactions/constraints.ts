@@ -68,6 +68,38 @@ export function checkShelfFurnitureCollision(
 }
 
 /**
+ * 선반 생성/이동 시 겹치는 가구 목록을 반환합니다.
+ */
+export function findShelfFurnitureCollisions(
+  shelf: Shelf,
+  newYMm: number,
+  sectionStartXMm: number,
+  sectionWidth: number,
+  furnitures: PlacedFurniture[]
+): PlacedFurniture[] {
+  const shelfType = shelf.type || 'normal';
+  const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+  const shelfThickness = shelfDimensions.heightMm;
+
+  const shelfLeft = sectionStartXMm;
+  const shelfRight = sectionStartXMm + sectionWidth;
+  const shelfTop = newYMm + shelfThickness / 2;
+  const shelfBottom = newYMm - shelfThickness / 2 - shelf.b_limit;
+
+  return furnitures.filter((furniture) => {
+    const furnitureLeft = furniture.xMm;
+    const furnitureRight = furniture.xMm + furniture.widthMm;
+    const furnitureTop = furniture.yMm + furniture.heightMm;
+    const furnitureBottom = furniture.yMm;
+
+    const xOverlap = shelfLeft < furnitureRight && shelfRight > furnitureLeft;
+    const yOverlap = shelfBottom < furnitureTop && shelfTop > furnitureBottom;
+
+    return xOverlap && yOverlap;
+  });
+}
+
+/**
  * 기둥이 가구와 충돌하는지 검사하고 유효한 X 위치를 반환합니다.
  * @param pillar - 검사할 기둥
  * @param newXMm - 기둥의 새로운 X 위치 (mm)
@@ -125,6 +157,33 @@ export function checkPillarFurnitureCollision(
   }
 
   return { hasCollision, validXMm };
+}
+
+/**
+ * 기둥 생성/이동 시 겹치는 가구 목록을 반환합니다.
+ */
+export function findPillarFurnitureCollisions(
+  newXMm: number,
+  furnitures: PlacedFurniture[],
+  pillarThicknessMm: number,
+  roomHeightMm: number
+): PlacedFurniture[] {
+  const pillarLeft = newXMm - pillarThicknessMm / 2;
+  const pillarRight = newXMm + pillarThicknessMm / 2;
+  const pillarTop = roomHeightMm;
+  const pillarBottom = 0;
+
+  return furnitures.filter((furniture) => {
+    const furnitureLeft = furniture.xMm;
+    const furnitureRight = furniture.xMm + furniture.widthMm;
+    const furnitureTop = furniture.yMm + furniture.heightMm;
+    const furnitureBottom = furniture.yMm;
+
+    const xOverlap = pillarLeft < furnitureRight && pillarRight > furnitureLeft;
+    const yOverlap = pillarBottom < furnitureTop && pillarTop > furnitureBottom;
+
+    return xOverlap && yOverlap;
+  });
 }
 
 /**
@@ -498,4 +557,3 @@ export function createShelfPositionValidator(_pillars: Pillar[]) {
     return finalHeight;
   };
 }
-
