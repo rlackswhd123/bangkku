@@ -1,6 +1,6 @@
 // useRoomCanvasRenderer.ts: Canvas 렌더 파이프라인과 커서 업데이트 훅을 제공
 import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
-import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section } from '../../../types';
+import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessory } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
@@ -237,6 +237,43 @@ export function useRoomCanvasRenderer({
       const isGhost = currentDragState.type === 'shelf' && currentDragState.targetKey === shelf.shelfKey;
       if (!isGhost) {
         drawShelf(ctx, shelf, currentPillars, currentSections, currentScaleInfo, shelfImages.value);
+      }
+
+      if (shelf.accessories && shelf.accessories.length > 0) {
+        shelf.accessories.forEach((acc: PlacedAccessory) => {
+          const isDraggingThisAcc =
+            currentDragState.type === 'accessory' && currentDragState.targetKey === acc.id;
+          if (isDraggingThisAcc && currentDragState.ghostXMm == null) {
+            return;
+          }
+
+          const accCenterX = isDraggingThisAcc
+            ? currentDragState.ghostXMm ?? acc.xMm ?? 0
+            : acc.xMm ?? 0;
+          const accCenterY = acc.yMm ?? shelf.y;
+          const accTopMm = accCenterY + acc.heightMm / 2;
+          const accBottomMm = accCenterY - acc.heightMm / 2;
+          const leftMm = accCenterX;
+          const widthPx = acc.widthMm * currentScaleInfo.scaleX;
+          const leftPx = mmToPxX(leftMm, currentScaleInfo);
+          const topPx = mmToPxY(accTopMm, currentScaleInfo);
+          const bottomPx = mmToPxY(accBottomMm, currentScaleInfo);
+          const heightPx = bottomPx - topPx;
+
+          ctx.fillStyle = isDraggingThisAcc ? 'rgba(255, 200, 0, 0.35)' : 'rgba(255, 200, 0, 0.8)';
+          ctx.strokeStyle = isDraggingThisAcc ? 'rgba(180, 140, 0, 0.6)' : 'rgba(180, 140, 0, 0.9)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(leftPx, topPx, widthPx, heightPx);
+          ctx.strokeRect(leftPx, topPx, widthPx, heightPx);
+
+          if (acc.name) {
+            ctx.fillStyle = '#222';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(acc.name, leftPx + widthPx / 2, topPx + heightPx / 2);
+          }
+        });
       }
     });
 

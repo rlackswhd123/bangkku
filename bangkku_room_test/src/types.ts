@@ -82,7 +82,7 @@ export interface Section {
 
 // 드래그 상태 타입
 export interface DragState {
-  type: 'pillar' | 'shelf' | 'furniture' | null;
+  type: 'pillar' | 'shelf' | 'furniture' | 'accessory' | null;
   targetKey: number | null;
   startX?: number;        // 드래그 시작 마우스 위치 (px)
   startY?: number;        // 드래그 시작 마우스 위치 (px)
@@ -91,6 +91,8 @@ export interface DragState {
   ghostXMm?: number;      // 가구 드래그 시 고스트 x (mm)
   lastValidXMm?: number;  // 가구 드래그 시 마지막 유효 x (mm)
   offsetXMm?: number;     // 가구 드래그 시 마우스 기준 offset (mm)
+  accessoryShelfKey?: number; // 소품이 속한 선반 키
+  accessorySectionKey?: number; // 소품이 속한 섹션 키
 }
 
 // 방 크기 제약
