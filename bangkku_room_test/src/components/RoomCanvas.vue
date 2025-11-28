@@ -652,38 +652,27 @@ const handleMouseMove = (e: MouseEvent) => {
   if (dragState.value.type === 'pillar' && dragState.value.targetKey != null) {
     const newXMm = pxToMmX(x, scaleInfo.value);
     const settings = store.settings.value;
-    const snappedXMm = snapToGrid(newXMm, settings.gridSizeMm);
 
     // 코너장 로직 제거: 기둥은 정면 벽(빨간 박스) 범위 밖으로 나갈 수 없음
     const minXMm = 0;
     const maxXMm = roomState.value.roomWidthMm;
-    const clampedXMm = Math.max(minXMm, Math.min(maxXMm, snappedXMm));
+    const clampedXMm = Math.max(minXMm, Math.min(maxXMm, newXMm));
 
-    // 기존 기둥 간 충돌 검사
-    let adjustedXMm = validatePillarPosition.value(
+    // 1. 기둥 간 간격 검사 + 가구 충돌 검사 (그리드 스냅 전)
+    // validatePillarPosition 내부에서 가구 충돌도 함께 체크
+    let pillarConstrainedXMm = validatePillarPosition.value(
       dragState.value.targetKey,
       clampedXMm,
-      activeFacePillars.value
+      activeFacePillars.value,
+      activeFaceFurnitures.value,
+      settings.pillarThicknessMm,
+      roomState.value.roomHeightMm
     );
 
-    // 가구와 충돌 검사 추가
-    const draggedPillar = activeFacePillars.value.find(p => p.pillarKey === dragState.value.targetKey);
-    if (draggedPillar) {
-      const furnitureCollision = checkPillarFurnitureCollision(
-        draggedPillar,
-        adjustedXMm,
-        activeFaceFurnitures.value,
-        settings.pillarThicknessMm,
-        roomState.value.roomHeightMm
-      );
+    // 2. 그리드 스냅 (모든 제약 적용 후)
+    const snappedXMm = snapToGrid(pillarConstrainedXMm, settings.gridSizeMm);
 
-      // 가구와 충돌 시 유효한 위치로 조정
-      if (furnitureCollision.hasCollision) {
-        adjustedXMm = furnitureCollision.validXMm;
-      }
-    }
-
-    const constrainedXMm = adjustedXMm;
+    const constrainedXMm = snappedXMm;
 
     // 기둥 위치 업데이트
     const updatedPillars = activeFacePillars.value.map((p) =>

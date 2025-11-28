@@ -129,14 +129,16 @@ export function checkPillarFurnitureCollision(
 
 /**
  * 기둥이 서로 겹치지 않도록 인접 기둥과 방 폭을 기준으로 이동 가능 범위를 제한합니다.
+ * 가구 정보도 받아서 가구를 넘어가지 않도록 제한합니다.
  */
 export function createPillarPositionValidator(room: RoomState) {
-  return (targetPillarKey: number, newX: number, pillars: Pillar[]) => {
+  return (targetPillarKey: number, newX: number, pillars: Pillar[], furnitures: PlacedFurniture[] = [], pillarThicknessMm: number = 0, roomHeightMm: number = 0) => {
     const sortedPillars = [...pillars].sort((a, b) => a.x - b.x);
 
     const targetIndex = sortedPillars.findIndex((p) => p.pillarKey === targetPillarKey);
     if (targetIndex === -1) return newX;
 
+    const targetPillar = sortedPillars[targetIndex];
     const leftNeighbor = targetIndex > 0 ? sortedPillars[targetIndex - 1] : null;
     const rightNeighbor = targetIndex < sortedPillars.length - 1 ? sortedPillars[targetIndex + 1] : null;
 
@@ -157,6 +159,36 @@ export function createPillarPositionValidator(room: RoomState) {
       const minAllowedXMm = rightNeighbor.x - PILLAR_SHELF_CONSTRAINTS.MAX_PILLAR_SPACING_MM;
       if (newX < minAllowedXMm) {
         minXMm = Math.max(minXMm, minAllowedXMm);
+      }
+    }
+
+    // 가구 충돌 체크 추가 (RS 기둥 제외)
+    const pillarStyle = targetPillar.pillarStyle || 'RS';
+    if (pillarStyle !== 'RS' && furnitures.length > 0) {
+      const currentX = targetPillar.x; // 현재 기둥 위치
+
+      for (const furniture of furnitures) {
+        const furnitureLeft = furniture.xMm;
+        const furnitureRight = furniture.xMm + furniture.widthMm;
+        const furnitureTop = furniture.yMm + furniture.heightMm;
+        const furnitureBottom = furniture.yMm;
+
+        // Y축 겹침 확인 (가구와 기둥이 같은 높이 범위에 있는지)
+        const yOverlap = 0 < furnitureTop && roomHeightMm > furnitureBottom;
+
+        if (yOverlap) {
+          // 오른쪽으로 이동 중인 경우
+          if (newX > currentX && currentX <= furnitureLeft && newX > furnitureLeft) {
+            // 가구 왼쪽을 넘지 못하도록 제한
+            maxXMm = Math.min(maxXMm, furnitureLeft - pillarThicknessMm / 2);
+          }
+
+          // 왼쪽으로 이동 중인 경우
+          if (newX < currentX && currentX >= furnitureRight && newX < furnitureRight) {
+            // 가구 오른쪽을 넘지 못하도록 제한
+            minXMm = Math.max(minXMm, furnitureRight + pillarThicknessMm / 2);
+          }
+        }
       }
     }
 
