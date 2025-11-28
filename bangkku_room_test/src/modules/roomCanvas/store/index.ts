@@ -42,7 +42,7 @@ function findLeftmostSlot(
     const rectStart = rect.x;
     const rectEnd = rect.x + rect.width;
 
-    // 해당 rect 안에 있는 가구들만 추려서 x 기준 정렬
+    // 해당 rect와 겹치는 모든 가구를 x 기준 정렬
     const furnituresInRect = furnituresOnFace
       .filter(f => f.xMm < rectEnd && f.xMm + f.widthMm > rectStart)
       .sort((a, b) => a.xMm - b.xMm);
@@ -65,15 +65,28 @@ function findLeftmostSlot(
     }
 
     for (const seg of segments) {
-      const snapped = snapToGrid(seg.start, gridSizeMm);
-      const candidate = Math.min(
-        Math.max(snapped, rectStart),
+      let candidate = Math.min(
+        Math.max(snapToGrid(seg.start, gridSizeMm), seg.start),
         seg.end - furnitureWidthMm
       );
-      const fits = candidate >= 0 && candidate + furnitureWidthMm <= seg.end && candidate + furnitureWidthMm <= faceWidthMm;
-      if (fits) {
-        return candidate;
+
+      // 겹치는 가구가 있으면 그 오른쪽으로 밀고 재스냅
+      for (const f of furnituresOnFace) {
+        const fEnd = f.xMm + f.widthMm;
+        if (candidate < fEnd && candidate + furnitureWidthMm > f.xMm) {
+          candidate = snapToGrid(fEnd, gridSizeMm);
+        }
       }
+
+      const fits = candidate >= seg.start &&
+        candidate + furnitureWidthMm <= seg.end &&
+        candidate + furnitureWidthMm <= faceWidthMm &&
+        !furnituresOnFace.some(f => {
+          const fEnd = f.xMm + f.widthMm;
+          return candidate < fEnd && candidate + furnitureWidthMm > f.xMm;
+        });
+
+      if (fits) return candidate;
     }
   }
 
@@ -120,11 +133,22 @@ function findNearestSlot(
     for (const seg of segments) {
       if (seg.end - seg.start < furnitureWidthMm) continue;
       const snapped = snapToGrid(desiredXMm, gridSizeMm);
-      const candidate = Math.min(
+      let candidate = Math.min(
         Math.max(snapped, seg.start),
         seg.end - furnitureWidthMm
       );
+      // 겹치면 오른쪽으로 밀고 재스냅
+      for (const f of furnituresOnFace) {
+        const fEnd = f.xMm + f.widthMm;
+        if (candidate < fEnd && candidate + furnitureWidthMm > f.xMm) {
+          candidate = snapToGrid(fEnd, gridSizeMm);
+        }
+      }
       if (candidate < 0 || candidate + furnitureWidthMm > seg.end || candidate + furnitureWidthMm > faceWidthMm) continue;
+      if (furnituresOnFace.some(f => {
+        const fEnd = f.xMm + f.widthMm;
+        return candidate < fEnd && candidate + furnitureWidthMm > f.xMm;
+      })) continue;
       const dist = Math.abs(desiredXMm - candidate);
       if (dist < bestDistance) {
         bestDistance = dist;
