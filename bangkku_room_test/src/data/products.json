@@ -13,7 +13,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 54900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -28,7 +28,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 64900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -43,7 +43,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 74900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -58,7 +58,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 49900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -73,7 +73,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 59900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -88,7 +88,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 69900,
-      "image": "/src/images/pillar/일반_선반.png"
+      "image": "/src/images/shelf/일반_선반.png"
     },
     {
       "shelfKey": 0,
@@ -103,7 +103,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 64900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -118,7 +118,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 74900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -133,7 +133,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 84900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -148,7 +148,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 59900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -163,7 +163,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 69900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -178,7 +178,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 79900,
-      "image": "/src/images/pillar/옷걸이_선반.png"
+      "image": "/src/images/shelf/옷걸이_선반.png"
     },
     {
       "shelfKey": 0,
@@ -193,7 +193,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 89900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     },
     {
       "shelfKey": 0,
@@ -208,7 +208,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 99900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     },
     {
       "shelfKey": 0,
@@ -223,7 +223,7 @@
       "material": "wood",
       "materialName": "나무",
       "price": 109900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     },
     {
       "shelfKey": 0,
@@ -238,7 +238,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 84900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     },
     {
       "shelfKey": 0,
@@ -253,7 +253,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 94900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     },
     {
       "shelfKey": 0,
@@ -268,7 +268,7 @@
       "material": "white_sheet",
       "materialName": "하얀시트지",
       "price": 104900,
-      "image": "/src/images/pillar/서랍_선반.png"
+      "image": "/src/images/shelf/서랍_선반.png"
     }
   ]
 }

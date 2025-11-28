@@ -14,8 +14,8 @@
       </div>
       <div v-if="isShelf && shelf" :style="styles.shelfImage">
         <img
-          v-if="shelfImage && shelfImage.complete"
-          :src="shelfImage.src"
+          v-if="shelfImage"
+          :src="shelfImage"
           :alt="`${shelf?.type || 'normal'} 선반`"
           :style="styles.shelfImageElement"
         />
@@ -167,42 +167,6 @@ const emit = defineEmits<{
   delete: [];
 }>();
 
-// 선반 이미지 로드
-const shelfImages = ref<{
-  normal: HTMLImageElement | null;
-  drawer: HTMLImageElement | null;
-  hanger: HTMLImageElement | null;
-}>({
-  normal: null,
-  drawer: null,
-  hanger: null,
-});
-
-onMounted(() => {
-  const loadImage = (src: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
-
-  Promise.all([
-    loadImage(new URL('../images/pillar/일반_선반.png', import.meta.url).href),
-    loadImage(new URL('../images/pillar/서랍_선반.png', import.meta.url).href),
-    loadImage(new URL('../images/pillar/옷걸이_선반.png', import.meta.url).href),
-  ])
-    .then(([normalImg, drawerImg, hangerImg]) => {
-      shelfImages.value = {
-        normal: normalImg,
-        drawer: drawerImg,
-        hanger: hangerImg,
-      };
-    })
-    .catch(console.error);
-});
-
 const isPillar = computed(() => props.selectedType === 'pillar' && props.pillar);
 const isShelf = computed(() => props.selectedType === 'shelf' && props.shelf);
 const isFurniture = computed(() => props.selectedType === 'furniture' && props.furniture);
@@ -213,8 +177,7 @@ const hasSelection = computed(
 
 const shelfImage = computed(() => {
   if (!props.shelf) return null;
-  const shelfType = props.shelf.type || 'normal';
-  return shelfImages.value[shelfType];
+  return props.shelf.image ?? null;
 });
 
 const furnitureInfo = computed(() => {

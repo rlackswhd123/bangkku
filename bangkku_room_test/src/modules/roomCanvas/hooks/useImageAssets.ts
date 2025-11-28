@@ -1,5 +1,6 @@
 // useImageAssets.ts: 코너/선반 PNG 리소스를 비동기로 로드해 공유하는 훅
 import { ref, onMounted } from 'vue';
+import productsData from '../../../data/products.json';
 
 type CornerImageKey = 111 | 222 | 333 | 444;
 type ShelfImageKey = 'normal' | 'drawer' | 'hanger';
@@ -37,10 +38,16 @@ const CORNER_IMAGE_PATHS: Record<CornerImageKey, string> = {
 
 const CORNER_IMAGE_KEYS: CornerImageKey[] = [111, 222, 333, 444];
 
-const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string> = {
-  normal: new URL('../../../images/pillar/일반_선반.png', import.meta.url).href,
-  drawer: new URL('../../../images/pillar/서랍_선반.png', import.meta.url).href,
-  hanger: new URL('../../../images/pillar/옷걸이_선반.png', import.meta.url).href,
+const shelfProducts: Array<{ type: ShelfImageKey; image?: string }> = (productsData as any)?.shelves ?? [];
+const pickImageForType = (type: ShelfImageKey): string | null => {
+  const found = shelfProducts.find((p) => p.type === type && p.image);
+  return found?.image ?? null;
+};
+
+const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string | null> = {
+  normal: pickImageForType('normal'),
+  drawer: pickImageForType('drawer'),
+  hanger: pickImageForType('hanger'),
 };
 
 const SHELF_IMAGE_KEYS: ShelfImageKey[] = ['normal', 'drawer', 'hanger'];
@@ -85,9 +92,11 @@ export function useImageAssets() {
       .catch(console.error);
 
     Promise.all(
-      SHELF_IMAGE_KEYS.map((key) =>
-        loadImage(SHELF_IMAGE_PATHS[key]).then((image) => ({ key, image }))
-      )
+      SHELF_IMAGE_KEYS.map((key) => {
+        const path = SHELF_IMAGE_PATHS[key];
+        if (!path) return Promise.resolve({ key, image: null });
+        return loadImage(path).then((image) => ({ key, image }));
+      })
     )
       .then((loaded) => {
         const mapped = loaded.reduce<ShelfImages>((acc, { key, image }) => {

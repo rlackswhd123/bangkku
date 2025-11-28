@@ -1178,26 +1178,39 @@ const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
   ): number | null => {
     const sorted = [...accessories].filter((a) => a.xMm != null).sort((a, b) => (a.xMm ?? 0) - (b.xMm ?? 0));
     let cursor = startXMm;
+    const desiredCenter = startXMm + (endXMm - startXMm) / 2;
 
+    // gaps 계산
+    const gaps: Array<{ start: number; end: number }> = [];
     for (const acc of sorted) {
       const accStart = acc.xMm ?? startXMm;
       const accEnd = accStart + acc.widthMm;
-
-      if (accStart - cursor >= widthMm) {
-        const candidate = snapWithin(cursor, cursor, accStart - widthMm);
-        if (candidate + widthMm <= accStart) {
-          return candidate;
-        }
+      if (accStart - cursor > 0) {
+        gaps.push({ start: cursor, end: accStart });
       }
-
       cursor = Math.max(cursor, accEnd);
     }
 
     if (endXMm - cursor >= widthMm) {
-      return snapWithin(cursor, cursor, endXMm - widthMm);
+      gaps.push({ start: cursor, end: endXMm });
     }
 
-    return null;
+    if (gaps.length === 0) return null;
+
+    let best: { x: number; dist: number } | null = null;
+    for (const gap of gaps) {
+      const usableWidth = gap.end - gap.start;
+      if (usableWidth < widthMm) continue;
+      const desiredStart = desiredCenter - widthMm / 2;
+      const candidate = snapWithin(desiredStart, gap.start, gap.end - widthMm);
+      const center = candidate + widthMm / 2;
+      const dist = Math.abs(center - desiredCenter);
+      if (!best || dist < best.dist) {
+        best = { x: candidate, dist };
+      }
+    }
+
+    return best ? best.x : null;
   };
 
   const updatedSections = activeFaceSections.value.map((section: Section) => {
