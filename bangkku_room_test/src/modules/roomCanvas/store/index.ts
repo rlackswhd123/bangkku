@@ -23,6 +23,11 @@ const globalSettings = ref<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
  */
 const activeFurnitureState = ref<ActiveFurniture>(null);
 
+/**
+ * 현재 마우스 호버 중인 선반 키 (버튼 표시 제어용)
+ */
+const hoveredShelfKey = ref<number | null>(null);
+
 let furnitureIdSeed = 1;
 const createFurnitureId = () => furnitureIdSeed++ + Date.now();
 
@@ -244,6 +249,11 @@ export function useRoomStore() {
    * 현재 선택된 가구
    */
   const activeFurniture = computed(() => activeFurnitureState.value);
+
+  /**
+   * 현재 호버 중인 선반 키
+   */
+  const hoveredShelf = computed(() => hoveredShelfKey.value);
 
   // ===== Actions =====
 
@@ -589,6 +599,13 @@ export function useRoomStore() {
   };
 
   /**
+   * 호버 중인 선반 키 설정
+   */
+  const setHoveredShelfKey = (shelfKey: number | null) => {
+    hoveredShelfKey.value = shelfKey;
+  };
+
+  /**
    * 현재 face의 PlacementRect 중 가장 왼쪽에서 자동 배치
    */
   const applyActiveFurnitureToCurrentFace = (): { success: boolean; message?: string } => {
@@ -765,6 +782,7 @@ export function useRoomStore() {
     allFaces: readonly(allFaces),
     settings: readonly(settings),
     activeFurniture: readonly(activeFurniture),
+    hoveredShelf: readonly(hoveredShelf),
 
     // Actions
     setRoomName,
@@ -789,6 +807,7 @@ export function useRoomStore() {
     updateGlobalSettings,
     resetGlobalSettings,
     setActiveFurniture,
+    setHoveredShelfKey,
     applyActiveFurnitureToCurrentFace,
     canPlaceHereOnFace,
     findNearestFurnitureSlotOnFace,

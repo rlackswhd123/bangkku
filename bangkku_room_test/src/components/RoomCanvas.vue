@@ -741,6 +741,61 @@ const handleMouseDown = (e: MouseEvent) => {
 };
 
 /**
+ * 마우스 위치에서 선반 호버 감지 (버튼 표시 제어용)
+ */
+const detectShelfHover = (x: number, y: number) => {
+  if (!scaleInfo.value) return;
+
+  const sections = activeFaceSections.value;
+  const pillars = activeFacePillars.value;
+
+  // 선반 호버 감지
+  let foundHover = false;
+  for (const shelf of activeFaceShelves.value) {
+    if (shelf.sectionKey == null) continue;
+    const section = sections.find((s: Section) => s.sectionKey === shelf.sectionKey);
+    if (!section) continue;
+    const startPillar = pillars.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p: Pillar) => p.pillarKey === section.endPillarKey);
+    if (!startPillar || !endPillar) continue;
+
+    const startX = mmToPxX(startPillar.x, scaleInfo.value);
+    const endX = mmToPxX(endPillar.x, scaleInfo.value);
+    const shelfY = mmToPxY(shelf.y, scaleInfo.value);
+    const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
+
+    // 선반 영역 + 위쪽 버튼 영역(220mm 위)까지 호버 영역에 포함
+    const buttonOffsetPx = (220 / 1000) * scaleInfo.value.scaleY; // ITEM_ADD_BUTTON_OFFSET_MM를 픽셀로 변환
+    const buttonHeight = 20; // 버튼 높이
+    const buttonTopMargin = 35; // 버튼 위쪽 추가 여유
+    const hoverAreaTop = shelfY - buttonOffsetPx - buttonHeight - buttonTopMargin; // 버튼 위치 + 버튼 높이 + 여유
+    const hoverAreaBottom = shelfY + shelfThickness / 2 + 5;
+
+    console.log('[HOVER DEBUG] shelf:', shelf.shelfKey, 'x:', x, 'y:', y, 'area:', { startX, endX, hoverAreaTop, hoverAreaBottom, shelfY });
+
+    if (x >= startX && x <= endX && y >= hoverAreaTop && y <= hoverAreaBottom) {
+      foundHover = true;
+      // 이전 값과 다를 때만 업데이트 (불필요한 렌더링 방지)
+      if (store.hoveredShelf.value !== shelf.shelfKey) {
+        console.log('[HOVER] 선반 호버 감지:', shelf.shelfKey);
+        store.setHoveredShelfKey(shelf.shelfKey);
+      }
+      return;
+    }
+  }
+
+  if (!foundHover) {
+    console.log('[HOVER DEBUG] 호버 영역 벗어남');
+  }
+
+  // 선반 위에 없으면 null로 설정 (이전 값과 다를 때만)
+  if (store.hoveredShelf.value !== null) {
+    console.log('[HOVER] 선반 호버 해제');
+    store.setHoveredShelfKey(null);
+  }
+};
+
+/**
  * 드래그 중에는 기둥 X 좌표 또는 선반 높이를 실시간으로 계산해 반영합니다.
  */
 const handleMouseMove = (e: MouseEvent) => {
@@ -752,6 +807,11 @@ const handleMouseMove = (e: MouseEvent) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+
+  // 드래그 중이 아닐 때만 선반 호버 감지 (type이 null 또는 'none'일 때)
+  if (!dragState.value.type || dragState.value.type === 'none') {
+    detectShelfHover(x, y);
+  }
 
   // 소품 드래그
   if (dragState.value.type === 'accessory' && dragState.value.targetKey != null) {

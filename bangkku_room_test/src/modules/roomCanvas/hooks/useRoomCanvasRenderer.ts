@@ -462,8 +462,10 @@ export function useRoomCanvasRenderer({
     if (!excludeButtons) {
       drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
 
+      const hoveredShelfKey = store.hoveredShelf.value;
+
       if (currentPillars.length >= 2 || currentSections.length > 0) {
-        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
+        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections, hoveredShelfKey);
         drawAddShelfButtons(ctx, shelfButtons);
       }
 
@@ -473,13 +475,14 @@ export function useRoomCanvasRenderer({
       }
 
       if (currentShelves.length > 0 && currentSections.length > 0) {
-        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
+        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo, hoveredShelfKey);
         drawItemAddButtons(ctx, itemAddButtons);
       }
     }
   };
 
   // 렌더링 트리거: 상태나 자산이 바뀌면 즉시 다시 그립니다.
+  const store = useRoomStore();
   watch(
     [
       () => unref(room),
@@ -491,6 +494,7 @@ export function useRoomCanvasRenderer({
       () => cornerImages.value,
       () => shelfImages.value,
       () => wallImages.value,
+      () => store.hoveredShelf.value,
     ],
     () => {
       render();
