@@ -245,7 +245,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   buttonSizes: {
     pillarAdd: { width: 70, height: 30 },
     shelfAdd: { radius: 11 },
-    sectionDelete: { width: 24, height: 14 },
+    sectionDelete: { width: 18, height: 12 },
   },
   sectionDeleteButtonOffsetMm: 50,
   maxPillarOutsideMm: 300,

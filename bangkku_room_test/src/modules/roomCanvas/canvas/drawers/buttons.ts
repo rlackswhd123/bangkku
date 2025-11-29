@@ -255,7 +255,7 @@ export function drawSectionDeleteButtons(ctx: CanvasRenderingContext2D, buttons:
     const btnY = button.y - buttonHeight / 2;
 
     // 배경
-    ctx.fillStyle = '#FF4444';
+    ctx.fillStyle = '#B33333';
     ctx.beginPath();
     ctx.moveTo(btnX + borderRadius, btnY);
     ctx.lineTo(btnX + buttonWidth - borderRadius, btnY);
@@ -270,7 +270,7 @@ export function drawSectionDeleteButtons(ctx: CanvasRenderingContext2D, buttons:
     ctx.fill();
 
     // 테두리
-    ctx.strokeStyle = '#CC0000';
+    ctx.strokeStyle = '#8B0000';
     ctx.lineWidth = 1;
     ctx.stroke();
 

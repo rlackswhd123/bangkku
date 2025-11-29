@@ -590,7 +590,7 @@ const handleMouseDown = (e: MouseEvent) => {
   }
 
   if (pillars.length >= 2 || sections.length > 0) {
-    const shelfButtons = calculateShelfButtonPositions(pillars, activeFaceShelves.value, scaleInfo.value, sections);
+    const shelfButtons = calculateShelfButtonPositions(pillars, activeFaceShelves.value, scaleInfo.value, sections, store.hoveredShelf.value);
     const settings = store.settings.value;
     const shelfButtonRadius = settings.buttonSizes.shelfAdd.radius;
     for (const button of shelfButtons) {
@@ -617,7 +617,7 @@ const handleMouseDown = (e: MouseEvent) => {
 
   // 소품 추가 버튼 클릭 처리
   if (activeFaceShelves.value.length > 0 && sections.length > 0) {
-    const itemAddButtons = calculateItemAddButtonPositions(activeFaceShelves.value, sections, pillars, scaleInfo.value);
+    const itemAddButtons = calculateItemAddButtonPositions(activeFaceShelves.value, sections, pillars, scaleInfo.value, store.hoveredShelf.value);
     const buttonWidth = 50;
     const buttonHeight = 20;
     for (const button of itemAddButtons) {
@@ -767,7 +767,7 @@ const detectShelfHover = (x: number, y: number) => {
     // 선반 영역 + 위쪽 버튼 영역(220mm 위)까지 호버 영역에 포함
     const buttonOffsetPx = (220 / 1000) * scaleInfo.value.scaleY; // ITEM_ADD_BUTTON_OFFSET_MM를 픽셀로 변환
     const buttonHeight = 20; // 버튼 높이
-    const buttonTopMargin = 35; // 버튼 위쪽 추가 여유
+    const buttonTopMargin = 50; // 버튼 위쪽 추가 여유
     const hoverAreaTop = shelfY - buttonOffsetPx - buttonHeight - buttonTopMargin; // 버튼 위치 + 버튼 높이 + 여유
     const hoverAreaBottom = shelfY + shelfThickness / 2 + 5;
 
