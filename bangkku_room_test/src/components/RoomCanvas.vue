@@ -1550,13 +1550,14 @@ const handleFaceRotate = async (direction: 'left' | 'right') => {
     if (canvasRef.value && scaleInfo.value) {
       try {
         const currentFace = store.getFaceState(currentFaceId);
-        
-        // 빈 면인지 확인 (기둥, 섹션, 선반이 모두 없으면 빈 면)
-        const hasFurniture = currentFace.pillars.length > 0 || 
-                            currentFace.sections.length > 0;
-        
+
+        // 빈 면인지 확인 (기둥, 섹션, 선반, 가구가 모두 없으면 빈 면)
+        const hasContent = currentFace.pillars.length > 0 ||
+                          currentFace.sections.length > 0 ||
+                          currentFace.furnitures.length > 0;
+
         // 빈 면은 스냅샷 캡처하지 않음
-        if (!hasFurniture) {
+        if (!hasContent) {
           console.log(`면 ${currentFaceId} 스냅샷 생략 (빈 면)`);
         } else {
           const { calculateFaceContentHash } = await import('../modules/roomCanvas/models/roomFace');

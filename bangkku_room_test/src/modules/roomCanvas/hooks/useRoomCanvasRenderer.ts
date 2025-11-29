@@ -5,6 +5,18 @@ import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
 import { CornerImages, ShelfImages, WallImages, PillarImages } from './useImageAssets';
+
+// 소품 이미지 경로별로 1회만 로드하도록 캐시
+const accessoryImageCache = new Map<string, HTMLImageElement>();
+const getCachedImage = (src: string | undefined | null): HTMLImageElement | null => {
+  if (!src) return null;
+  const cached = accessoryImageCache.get(src);
+  if (cached) return cached;
+  const img = new Image();
+  img.src = src;
+  accessoryImageCache.set(src, img);
+  return img;
+};
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import {
   drawAddPillarButton,
@@ -262,19 +274,45 @@ export function useRoomCanvasRenderer({
           const bottomPx = mmToPxY(accBottomMm, currentScaleInfo);
           const heightPx = bottomPx - topPx;
 
-          ctx.fillStyle = isDraggingThisAcc ? 'rgba(255, 200, 0, 0.35)' : 'rgba(255, 200, 0, 0.8)';
-          ctx.strokeStyle = isDraggingThisAcc ? 'rgba(180, 140, 0, 0.6)' : 'rgba(180, 140, 0, 0.9)';
-          ctx.lineWidth = 1;
-          ctx.fillRect(leftPx, topPx, widthPx, heightPx);
-          ctx.strokeRect(leftPx, topPx, widthPx, heightPx);
+          // 소품 이미지 렌더링
+          const accImage = acc.image ? getCachedImage(acc.image) : null;
 
-          if (acc.name) {
-            ctx.fillStyle = '#222';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(acc.name, leftPx + widthPx / 2, topPx + heightPx / 2);
+          ctx.save();
+
+          if (accImage && accImage.complete && accImage.naturalWidth > 0 && accImage.naturalHeight > 0) {
+            // 이미지 렌더링
+            if (isDraggingThisAcc) {
+              ctx.globalAlpha = 0.5;
+            }
+            ctx.drawImage(
+              accImage,
+              0,
+              0,
+              accImage.naturalWidth,
+              accImage.naturalHeight,
+              leftPx,
+              topPx,
+              widthPx,
+              heightPx
+            );
+          } else {
+            // Fallback: 기존 노란색 박스
+            ctx.fillStyle = isDraggingThisAcc ? 'rgba(255, 200, 0, 0.35)' : 'rgba(255, 200, 0, 0.8)';
+            ctx.strokeStyle = isDraggingThisAcc ? 'rgba(180, 140, 0, 0.6)' : 'rgba(180, 140, 0, 0.9)';
+            ctx.lineWidth = 1;
+            ctx.fillRect(leftPx, topPx, widthPx, heightPx);
+            ctx.strokeRect(leftPx, topPx, widthPx, heightPx);
+
+            if (acc.name) {
+              ctx.fillStyle = '#222';
+              ctx.font = '10px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(acc.name, leftPx + widthPx / 2, topPx + heightPx / 2);
+            }
           }
+
+          ctx.restore();
         });
       }
     });
