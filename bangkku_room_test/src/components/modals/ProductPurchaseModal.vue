@@ -108,17 +108,6 @@
         <!-- 모달 푸터 -->
         <div :style="modalFooterStyle">
           <button
-            @click="$emit('toggleRectPreview')"
-            :style="{
-              ...modalPreviewButtonStyle,
-              ...(showRectPreview ? modalPreviewButtonActiveStyle : {})
-            }"
-            @mouseenter="handleModalButtonHover"
-            @mouseleave="handleModalButtonLeave"
-          >
-            배치 미리보기 ({{ availableRectsCount }})
-          </button>
-          <button
             @click="$emit('close')"
             :style="modalCancelButtonStyle"
             @mouseenter="handleModalButtonHover"
@@ -459,24 +448,6 @@ const modalCancelButtonStyle = {
   cursor: 'pointer',
   fontWeight: '500',
   transition: 'all 0.2s',
-};
-
-const modalPreviewButtonStyle = {
-  padding: '10px 18px',
-  border: '1px solid #e0e0e0',
-  borderRadius: '6px',
-  backgroundColor: '#fff',
-  color: '#555',
-  fontSize: '14px',
-  cursor: 'pointer',
-  fontWeight: '500',
-  transition: 'all 0.2s',
-};
-
-const modalPreviewButtonActiveStyle = {
-  borderColor: '#007AFF',
-  color: '#007AFF',
-  boxShadow: '0 0 0 1px rgba(0,122,255,0.25)',
 };
 
 const modalApplyButtonStyle = {
