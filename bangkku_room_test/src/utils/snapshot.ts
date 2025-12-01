@@ -72,9 +72,24 @@ export async function captureFaceSnapshot(
 
   snapshotCtx.putImageData(imageData, 0, 0);
 
-  // 5. Blob으로 변환
+  // 5. 블러 효과 적용
+  const blurredCanvas = document.createElement('canvas');
+  blurredCanvas.width = snapshotCanvas.width;
+  blurredCanvas.height = snapshotCanvas.height;
+  const blurredCtx = blurredCanvas.getContext('2d');
+
+  if (!blurredCtx) {
+    throw new Error('Blurred canvas context를 가져올 수 없습니다.');
+  }
+
+  // 블러 필터 적용 (2px = 살짝 흐린 효과)
+  blurredCtx.filter = 'blur(3px)';
+  blurredCtx.drawImage(snapshotCanvas, 0, 0);
+  blurredCtx.filter = 'none'; // 필터 초기화
+
+  // 6. Blob으로 변환 (블러 적용된 캔버스)
   const blob = await new Promise<Blob>((resolve, reject) => {
-    snapshotCanvas.toBlob((blob) => {
+    blurredCanvas.toBlob((blob) => {
       if (blob) {
         resolve(blob);
       } else {
@@ -83,10 +98,10 @@ export async function captureFaceSnapshot(
     }, 'image/png');
   });
 
-  // 6. Object URL 생성
+  // 7. Object URL 생성
   const imageDataUrl = URL.createObjectURL(blob);
 
-  // 7. 이미지 객체 미리 로딩
+  // 8. 이미지 객체 미리 로딩
   const imageElement = new Image();
   await new Promise<void>((resolve, reject) => {
     imageElement.onload = () => resolve();
@@ -94,7 +109,7 @@ export async function captureFaceSnapshot(
     imageElement.src = imageDataUrl;
   });
 
-  // 8. 화면 캔버스는 그대로 유지 (재렌더링 불필요)
+  // 9. 화면 캔버스는 그대로 유지 (재렌더링 불필요)
 
   return {
     imageDataUrl,
