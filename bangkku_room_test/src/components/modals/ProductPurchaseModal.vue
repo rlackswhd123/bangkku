@@ -16,6 +16,9 @@
         <div :style="modalHeaderStyle">
           <div :style="modalTitleStyle">상품 구매</div>
           <div :style="modalSubtitleStyle">추가할 상품을 선택해주세요</div>
+          <div :style="previewHintStyle">
+            배치 미리보기로 현재 배치 가능 영역을 초록색으로 확인할 수 있습니다.
+          </div>
         </div>
         <!-- 좌우 분할 영역 -->
         <div :style="modalContentWrapperStyle">
@@ -104,6 +107,17 @@
         </div>
         <!-- 모달 푸터 -->
         <div :style="modalFooterStyle">
+          <button
+            @click="$emit('toggleRectPreview')"
+            :style="{
+              ...modalPreviewButtonStyle,
+              ...(showRectPreview ? modalPreviewButtonActiveStyle : {})
+            }"
+            @mouseenter="handleModalButtonHover"
+            @mouseleave="handleModalButtonLeave"
+          >
+            배치 미리보기 ({{ availableRectsCount }})
+          </button>
           <button
             @click="$emit('close')"
             :style="modalCancelButtonStyle"
@@ -287,6 +301,12 @@ const modalSubtitleStyle = {
   color: '#666',
 };
 
+const previewHintStyle = {
+  marginTop: '8px',
+  fontSize: '12px',
+  color: '#888',
+};
+
 const modalContentWrapperStyle = {
   display: 'flex',
   flexDirection: 'row' as const,
@@ -439,6 +459,24 @@ const modalCancelButtonStyle = {
   cursor: 'pointer',
   fontWeight: '500',
   transition: 'all 0.2s',
+};
+
+const modalPreviewButtonStyle = {
+  padding: '10px 18px',
+  border: '1px solid #e0e0e0',
+  borderRadius: '6px',
+  backgroundColor: '#fff',
+  color: '#555',
+  fontSize: '14px',
+  cursor: 'pointer',
+  fontWeight: '500',
+  transition: 'all 0.2s',
+};
+
+const modalPreviewButtonActiveStyle = {
+  borderColor: '#007AFF',
+  color: '#007AFF',
+  boxShadow: '0 0 0 1px rgba(0,122,255,0.25)',
 };
 
 const modalApplyButtonStyle = {
