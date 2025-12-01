@@ -16,6 +16,9 @@
         <div :style="modalHeaderStyle">
           <div :style="modalTitleStyle">상품 구매</div>
           <div :style="modalSubtitleStyle">추가할 상품을 선택해주세요</div>
+          <div :style="previewHintStyle">
+            배치 미리보기로 현재 배치 가능 영역을 초록색으로 확인할 수 있습니다.
+          </div>
         </div>
         <!-- 좌우 분할 영역 -->
         <div :style="modalContentWrapperStyle">
@@ -285,6 +288,12 @@ const modalTitleStyle = {
 const modalSubtitleStyle = {
   fontSize: '14px',
   color: '#666',
+};
+
+const previewHintStyle = {
+  marginTop: '8px',
+  fontSize: '12px',
+  color: '#888',
 };
 
 const modalContentWrapperStyle = {

@@ -58,8 +58,8 @@
                     >
                       <div :style="shelfImageAreaStyle">
                         <img
-                          v-if="getProductImage(product.type)"
-                          :src="getProductImage(product.type)?.src"
+                          v-if="product.image || getProductImage(product.type)"
+                          :src="product.image || getProductImage(product.type)?.src"
                           :alt="product.name"
                           :style="shelfPreviewImageStyle"
                         />
@@ -67,7 +67,7 @@
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
                       <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × {{ product.thickness || 20 }} × {{ product.z }} (mm)</div>
                       <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>
@@ -86,8 +86,8 @@
                     >
                       <div :style="shelfImageAreaStyle">
                         <img
-                          v-if="getProductImage(product.type)"
-                          :src="getProductImage(product.type)?.src"
+                          v-if="product.image || getProductImage(product.type)"
+                          :src="product.image || getProductImage(product.type)?.src"
                           :alt="product.name"
                           :style="shelfPreviewImageStyle"
                         />
@@ -95,7 +95,7 @@
                       </div>
                       <div :style="shelfCardTitleStyle">{{ product.name }}</div>
                       <div :style="shelfCardSubtitleStyle">{{ product.materialName }}</div>
-                      <div :style="shelfCardSizeStyle">{{ product.x }} × 20 × {{ product.z }} (mm)</div>
+                      <div :style="shelfCardSizeStyle">{{ product.x }} × {{ product.thickness || 20 }} × {{ product.z }} (mm)</div>
                       <div :style="shelfCardPriceStyle">{{ product.price?.toLocaleString() }} 원</div>
                     </div>
                   </div>

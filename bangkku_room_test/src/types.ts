@@ -47,6 +47,9 @@ export interface Pillar {
   pillarStyle?: 'RS' | 'CS' | 'DU';  // 기둥 스타일: 후면 싱글, 센터 싱글, 듀얼
 }
 
+// 기둥 스타일별 이미지 매핑
+export type PillarImages = Record<'RS' | 'CS' | 'DU', HTMLImageElement | null>;
+
 // 선반 타입 정의 (공통)
 export type ShelfType = 'normal' | 'hanger' | 'drawer';
 export type ShelfMaterial = 'wood' | 'white_sheet';
@@ -60,6 +63,7 @@ export interface Shelf {
   x: number;               // 선반 폭/길이 (mm)
   y: number;               // 높이 위치 (mm) (카탈로그에선 0)
   z: number;               // 깊이 (mm)
+  thickness?: number;      // 선반 자체의 두께/높이 (mm) - 미지정 시 FURNITURE_DIMENSIONS 사용
   t_limit: number;         // 상단 제약
   b_limit: number;         // 하단 제약
   accessories?: PlacedAccessory[]; // 선반 위 소품 목록
@@ -241,7 +245,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   buttonSizes: {
     pillarAdd: { width: 70, height: 30 },
     shelfAdd: { radius: 11 },
-    sectionDelete: { width: 24, height: 14 },
+    sectionDelete: { width: 18, height: 12 },
   },
   sectionDeleteButtonOffsetMm: 50,
   maxPillarOutsideMm: 300,

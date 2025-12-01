@@ -1,8 +1,20 @@
 // shelves.ts: 선반/코너장 이미지를 캔버스에 렌더하고 고스트 상태를 처리
-import { Pillar, ScaleInfo, Section, Shelf } from '../../../../types';
+import { Pillar, ScaleInfo, Section, Shelf, FURNITURE_DIMENSIONS } from '../../../../types';
 import { PILLAR_SHELF_CONSTRAINTS } from '../../../../types';
 import { mmToPxX, mmToPxY } from '../../../../utils/coordinates';
 import { CornerImages, ShelfImages } from '../../hooks/useImageAssets';
+
+// 이미지 경로별로 1회만 로드하도록 캐시
+const shelfImageCache = new Map<string, HTMLImageElement>();
+const getCachedImage = (src: string | undefined | null): HTMLImageElement | null => {
+  if (!src) return null;
+  const cached = shelfImageCache.get(src);
+  if (cached) return cached;
+  const img = new Image();
+  img.src = src;
+  shelfImageCache.set(src, img);
+  return img;
+};
 
 export function drawShelf(
   ctx: CanvasRenderingContext2D,
@@ -29,20 +41,26 @@ export function drawShelf(
   const shelfWidth = endX - startX;
 
   const shelfType = shelf.type || 'normal';
-  const shelfImage = shelfImages[shelfType];
-
-  let fixedShelfHeight: number;
-  if (shelfType === 'normal') {
-    fixedShelfHeight = Math.max(scaleInfo.redRect.height * 0.04, 20);
-  } else {
-    fixedShelfHeight = Math.max(scaleInfo.redRect.height * 0.08, 30);
-  }
+  const shelfImage = shelf.image ? getCachedImage(shelf.image) : shelfImages[shelfType];
+  const shelfDimensions = shelfType ? FURNITURE_DIMENSIONS[shelfType] : FURNITURE_DIMENSIONS.normal;
+  const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+  const drawHeight = shelfThicknessMm * scaleInfo.scaleY;
 
   if (shelfImage && shelfImage.complete && shelfImage.naturalWidth > 0 && shelfImage.naturalHeight > 0) {
     const drawWidth = shelfWidth;
-    const drawHeight = fixedShelfHeight;
     const drawX = startX;
     const drawY = shelfY - drawHeight / 2;
+
+    console.log('🖼️ 선반 이미지 렌더링:', {
+      shelfKey: shelf.shelfKey,
+      'shelf.x (mm)': shelf.x,
+      'section width (mm)': endXMm - startXMm,
+      'startX (px)': startX,
+      'endX (px)': endX,
+      'drawWidth (px)': drawWidth,
+      'drawX (px)': drawX,
+      'image.naturalWidth': shelfImage.naturalWidth,
+    });
 
     ctx.drawImage(
       shelfImage,
@@ -58,7 +76,7 @@ export function drawShelf(
     return;
   }
 
-  const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
+  const shelfThickness = drawHeight || PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
   const shelfCenterX = (startX + endX) / 2;
 
   ctx.fillStyle = '#CD853F';
@@ -171,4 +189,3 @@ export function drawCornerShelfImages(
     drawCornerImage(bottomImage, false);
   }
 }
-

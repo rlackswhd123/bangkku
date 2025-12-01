@@ -1,10 +1,22 @@
 // useRoomCanvasRenderer.ts: Canvas 렌더 파이프라인과 커서 업데이트 훅을 제공
 import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
-import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessory } from '../../../types';
+import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessory, FURNITURE_DIMENSIONS } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
-import { CornerImages, ShelfImages, WallImages } from './useImageAssets';
+import { CornerImages, ShelfImages, WallImages, PillarImages } from './useImageAssets';
+
+// 소품 이미지 경로별로 1회만 로드하도록 캐시
+const accessoryImageCache = new Map<string, HTMLImageElement>();
+const getCachedImage = (src: string | undefined | null): HTMLImageElement | null => {
+  if (!src) return null;
+  const cached = accessoryImageCache.get(src);
+  if (cached) return cached;
+  const img = new Image();
+  img.src = src;
+  accessoryImageCache.set(src, img);
+  return img;
+};
 // import { drawSkeletonRoom } from '../canvas/drawers/skeleton'; // 현재 사용하지 않음
 import {
   drawAddPillarButton,
@@ -37,6 +49,7 @@ interface UseRoomCanvasRendererParams {
   cornerImages: Ref<CornerImages>;
   shelfImages: Ref<ShelfImages>;
   wallImages: Ref<WallImages>;
+  pillarImages: Ref<PillarImages>;
   onScaleChange: (scaleInfo: ScaleInfo) => void;
   availableRects?: AvailableRect[] | Ref<AvailableRect[]>;
   showRectPreview?: boolean | Ref<boolean>;
@@ -64,6 +77,7 @@ export function useRoomCanvasRenderer({
   cornerImages,
   shelfImages,
   wallImages,
+  pillarImages,
   onScaleChange,
   availableRects = [],
   showRectPreview = false,
@@ -229,7 +243,7 @@ export function useRoomCanvasRenderer({
       .forEach((pillar) => {
         const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
-          drawPillar(ctx, pillar, currentScaleInfo);
+          drawPillar(ctx, pillar, currentScaleInfo, pillarImages.value);
         }
       });
 
@@ -260,19 +274,45 @@ export function useRoomCanvasRenderer({
           const bottomPx = mmToPxY(accBottomMm, currentScaleInfo);
           const heightPx = bottomPx - topPx;
 
-          ctx.fillStyle = isDraggingThisAcc ? 'rgba(255, 200, 0, 0.35)' : 'rgba(255, 200, 0, 0.8)';
-          ctx.strokeStyle = isDraggingThisAcc ? 'rgba(180, 140, 0, 0.6)' : 'rgba(180, 140, 0, 0.9)';
-          ctx.lineWidth = 1;
-          ctx.fillRect(leftPx, topPx, widthPx, heightPx);
-          ctx.strokeRect(leftPx, topPx, widthPx, heightPx);
+          // 소품 이미지 렌더링
+          const accImage = acc.image ? getCachedImage(acc.image) : null;
 
-          if (acc.name) {
-            ctx.fillStyle = '#222';
-            ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(acc.name, leftPx + widthPx / 2, topPx + heightPx / 2);
+          ctx.save();
+
+          if (accImage && accImage.complete && accImage.naturalWidth > 0 && accImage.naturalHeight > 0) {
+            // 이미지 렌더링
+            if (isDraggingThisAcc) {
+              ctx.globalAlpha = 0.5;
+            }
+            ctx.drawImage(
+              accImage,
+              0,
+              0,
+              accImage.naturalWidth,
+              accImage.naturalHeight,
+              leftPx,
+              topPx,
+              widthPx,
+              heightPx
+            );
+          } else {
+            // Fallback: 기존 노란색 박스
+            ctx.fillStyle = isDraggingThisAcc ? 'rgba(255, 200, 0, 0.35)' : 'rgba(255, 200, 0, 0.8)';
+            ctx.strokeStyle = isDraggingThisAcc ? 'rgba(180, 140, 0, 0.6)' : 'rgba(180, 140, 0, 0.9)';
+            ctx.lineWidth = 1;
+            ctx.fillRect(leftPx, topPx, widthPx, heightPx);
+            ctx.strokeRect(leftPx, topPx, widthPx, heightPx);
+
+            if (acc.name) {
+              ctx.fillStyle = '#222';
+              ctx.font = '10px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(acc.name, leftPx + widthPx / 2, topPx + heightPx / 2);
+            }
           }
+
+          ctx.restore();
         });
       }
     });
@@ -376,7 +416,7 @@ export function useRoomCanvasRenderer({
       .forEach((pillar) => {
         const isGhost = currentDragState.type === 'pillar' && currentDragState.targetKey === pillar.pillarKey;
         if (!isGhost) {
-          drawPillar(ctx, pillar, currentScaleInfo);
+          drawPillar(ctx, pillar, currentScaleInfo, pillarImages.value);
         }
       });
 
@@ -385,7 +425,7 @@ export function useRoomCanvasRenderer({
       if (ghostPillar) {
         const pillarStyle = ghostPillar.pillarStyle || 'RS';
         if (pillarStyle !== 'DU') {
-          drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
+          drawGhostPillar(ctx, ghostPillar, currentScaleInfo, pillarImages.value);
         }
       }
     }
@@ -402,7 +442,7 @@ export function useRoomCanvasRenderer({
       if (ghostPillar) {
         const pillarStyle = ghostPillar.pillarStyle || 'RS';
         if (pillarStyle === 'DU') {
-          drawGhostPillar(ctx, ghostPillar, currentScaleInfo);
+          drawGhostPillar(ctx, ghostPillar, currentScaleInfo, pillarImages.value);
         }
       }
     }
@@ -422,8 +462,10 @@ export function useRoomCanvasRenderer({
     if (!excludeButtons) {
       drawAddPillarButton(ctx, currentPillars, currentScaleInfo);
 
+      const hoveredShelfKey = store.hoveredShelf.value;
+
       if (currentPillars.length >= 2 || currentSections.length > 0) {
-        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections);
+        const shelfButtons = calculateShelfButtonPositions(currentPillars, currentShelves, currentScaleInfo, currentSections, hoveredShelfKey);
         drawAddShelfButtons(ctx, shelfButtons);
       }
 
@@ -433,13 +475,14 @@ export function useRoomCanvasRenderer({
       }
 
       if (currentShelves.length > 0 && currentSections.length > 0) {
-        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo);
+        const itemAddButtons = calculateItemAddButtonPositions(currentShelves, currentSections, currentPillars, currentScaleInfo, hoveredShelfKey);
         drawItemAddButtons(ctx, itemAddButtons);
       }
     }
   };
 
   // 렌더링 트리거: 상태나 자산이 바뀌면 즉시 다시 그립니다.
+  const store = useRoomStore();
   watch(
     [
       () => unref(room),
@@ -451,6 +494,7 @@ export function useRoomCanvasRenderer({
       () => cornerImages.value,
       () => shelfImages.value,
       () => wallImages.value,
+      () => store.hoveredShelf.value,
     ],
     () => {
       render();
@@ -566,9 +610,32 @@ export function useCursorUpdater(
       const startX = mmToPxX(startPillar.x, scaleInfo.value);
       const endX = mmToPxX(endPillar.x, scaleInfo.value);
       const shelfY = mmToPxY(shelf.y, scaleInfo.value);
-      const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
 
-      if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
+      // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+      const shelfType = shelf.type || 'normal';
+      const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+      const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+      const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
+
+      const topBoundary = shelfY - shelfThickness / 2 - 5;
+      const bottomBoundary = shelfY + shelfThickness / 2 + 5;
+
+      // 디버그 로그 - 선반 근처 50px 범위 내에서만 출력
+      const nearShelf = x >= startX && x <= endX && Math.abs(y - shelfY) < 50;
+      if (nearShelf) {
+        const isInRange = y >= topBoundary && y <= bottomBoundary;
+        console.log(`🖱️ 선반#${shelf.shelfKey} [${shelfType}] ${isInRange ? '✅ 호버됨' : '❌ 범위밖'}:`, {
+          mouseY: Math.round(y),
+          shelfCenterY: Math.round(shelfY),
+          thicknessMm: shelfThicknessMm,
+          thicknessPx: Math.round(shelfThickness),
+          range: `${Math.round(topBoundary)} ~ ${Math.round(bottomBoundary)}`,
+          위쪽여유: Math.round(y - topBoundary),
+          아래쪽여유: Math.round(bottomBoundary - y)
+        });
+      }
+
+      if (x >= startX && x <= endX && y >= topBoundary && y <= bottomBoundary) {
         canvas.style.cursor = 'ns-resize';
         return;
       }

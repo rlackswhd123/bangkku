@@ -142,6 +142,80 @@
       </div>
     </Teleport>
 
+    <!-- 가구 삭제 확인 모달 -->
+    <Teleport to="body">
+      <div v-if="furnitureDeleteModal && furnitureDeleteModal.show">
+        <div
+          :style="modalOverlayStyle"
+          @click="handleFurnitureDeleteConfirm(false)"
+        />
+        <div
+          :style="modalStyle"
+          @click.stop
+        >
+          <div :style="modalTitleStyle">가구 삭제 확인</div>
+          <div :style="modalTextStyle">
+            이 가구를 삭제하시겠습니까?
+          </div>
+          <div :style="modalButtonGroupStyle">
+            <button
+              @click="handleFurnitureDeleteConfirm(false)"
+              :style="modalCancelButtonStyle"
+              @mouseenter="handleModalButtonHover"
+              @mouseleave="handleModalButtonLeave"
+            >
+              취소
+            </button>
+            <button
+              @click="handleFurnitureDeleteConfirm(true)"
+              :style="modalConfirmButtonStyle"
+              @mouseenter="handleModalConfirmButtonHover"
+              @mouseleave="handleModalConfirmButtonLeave"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 소품 삭제 확인 모달 -->
+    <Teleport to="body">
+      <div v-if="accessoryDeleteModal && accessoryDeleteModal.show">
+        <div
+          :style="modalOverlayStyle"
+          @click="handleAccessoryDeleteConfirm(false)"
+        />
+        <div
+          :style="modalStyle"
+          @click.stop
+        >
+          <div :style="modalTitleStyle">소품 삭제 확인</div>
+          <div :style="modalTextStyle">
+            이 소품을 삭제하시겠습니까?
+          </div>
+          <div :style="modalButtonGroupStyle">
+            <button
+              @click="handleAccessoryDeleteConfirm(false)"
+              :style="modalCancelButtonStyle"
+              @mouseenter="handleModalButtonHover"
+              @mouseleave="handleModalButtonLeave"
+            >
+              취소
+            </button>
+            <button
+              @click="handleAccessoryDeleteConfirm(true)"
+              :style="modalConfirmButtonStyle"
+              @mouseenter="handleModalConfirmButtonHover"
+              @mouseleave="handleModalConfirmButtonLeave"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 기둥 이동 확인 모달 -->
     <Teleport to="body">
       <div v-if="pillarMoveModal && pillarMoveModal.show">
@@ -225,6 +299,16 @@ const shelfDeleteModal = ref<{
   shelfKey: number;
 } | null>(null);
 
+const furnitureDeleteModal = ref<{
+  show: boolean;
+  furnitureId: number;
+} | null>(null);
+
+const accessoryDeleteModal = ref<{
+  show: boolean;
+  accessoryId: number;
+} | null>(null);
+
 const pillarMoveModal = ref<{
   show: boolean;
   pillarKey: number;
@@ -296,23 +380,15 @@ const handleDelete = () => {
       shelfKey: selectedKey.value,
     };
   } else if (selectedType.value === 'furniture' && selectedKey.value != null) {
-    store.removeActiveFaceFurniture(selectedKey.value);
-    selectedType.value = null;
-    selectedKey.value = null;
+    furnitureDeleteModal.value = {
+      show: true,
+      furnitureId: selectedKey.value,
+    };
   } else if (selectedType.value === 'accessory' && selectedKey.value != null) {
-    const updatedSections = store.activeFaceSections.value.map((section) => ({
-      ...section,
-      shelves: section.shelves.map((shelf) => {
-        if (!shelf.accessories) return shelf;
-        return {
-          ...shelf,
-          accessories: shelf.accessories.filter((acc) => acc.id !== selectedKey.value),
-        };
-      }),
-    }));
-    store.setActiveFaceSections(updatedSections as Section[]);
-    selectedType.value = null;
-    selectedKey.value = null;
+    accessoryDeleteModal.value = {
+      show: true,
+      accessoryId: selectedKey.value,
+    };
   }
 };
 
@@ -327,6 +403,43 @@ const handleShelfDeleteConfirm = (confirmed: boolean) => {
   }
 
   shelfDeleteModal.value = null;
+};
+
+/** 소품 삭제 확인 모달에서 응답을 받아 실제 삭제를 수행합니다. */
+const handleAccessoryDeleteConfirm = (confirmed: boolean) => {
+  if (!accessoryDeleteModal.value) return;
+
+  if (confirmed) {
+    const targetId = accessoryDeleteModal.value.accessoryId;
+    const updatedSections = store.activeFaceSections.value.map((section) => ({
+      ...section,
+      shelves: section.shelves.map((shelf) => {
+        if (!shelf.accessories) return shelf;
+        return {
+          ...shelf,
+          accessories: shelf.accessories.filter((acc) => acc.id !== targetId),
+        };
+      }),
+    }));
+    store.setActiveFaceSections(updatedSections as Section[]);
+    selectedType.value = null;
+    selectedKey.value = null;
+  }
+
+  accessoryDeleteModal.value = null;
+};
+
+/** 가구 삭제 확인 모달에서 응답을 받아 실제 삭제를 수행합니다. */
+const handleFurnitureDeleteConfirm = (confirmed: boolean) => {
+  if (!furnitureDeleteModal.value) return;
+
+  if (confirmed) {
+    store.removeActiveFaceFurniture(furnitureDeleteModal.value.furnitureId);
+    selectedType.value = null;
+    selectedKey.value = null;
+  }
+
+  furnitureDeleteModal.value = null;
 };
 
 /** 섹션 삭제 요청 핸들러 */
@@ -427,14 +540,42 @@ const handleLoad = async () => {
   try {
     const jsonString = await importJsonFile();
     const loadedState = deserializeRoomState(jsonString);
-    
+
     // 스토어에 불러온 상태 적용
     store.loadRoomState(loadedState);
-    
+
+    // 불러온 직후 모든 활성 면의 스냅샷 재생성 (다음 프레임에서 실행)
+    setTimeout(async () => {
+      const currentFaceId = store.activeFaceId.value;
+      const activeFaces = store.availableFaces.value;
+
+      console.log(`🔄 스냅샷 재생성 시작: 현재 면 ${currentFaceId}, 활성 면들:`, activeFaces);
+
+      // 모든 활성 면을 순회하며 스냅샷 생성
+      for (const faceId of activeFaces) {
+        if (faceId !== currentFaceId) {
+          // 다른 면으로 전환하여 스냅샷 캡처
+          await store.setActiveFaceId(faceId);
+          await new Promise(resolve => setTimeout(resolve, 50)); // 렌더링 대기
+          roomCanvasRef.value?.captureCurrentFaceSnapshot();
+          await new Promise(resolve => setTimeout(resolve, 50)); // 캡처 완료 대기
+        }
+      }
+
+      // 원래 면으로 돌아가기
+      if (store.activeFaceId.value !== currentFaceId) {
+        await store.setActiveFaceId(currentFaceId);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        roomCanvasRef.value?.captureCurrentFaceSnapshot();
+      }
+
+      console.log('✅ 방 상태 불러오기 완료 - 모든 스냅샷 재생성됨');
+    }, 150);
+
     showToast('파일을 불러왔습니다.');
   } catch (error) {
     console.error('불러오기 오류:', error);
-    
+
     if (error instanceof Error) {
       // 사용자가 파일 선택을 취소한 경우는 메시지를 표시하지 않음
       if (error.message.includes('취소') || error.message.includes('선택되지 않았습니다')) {

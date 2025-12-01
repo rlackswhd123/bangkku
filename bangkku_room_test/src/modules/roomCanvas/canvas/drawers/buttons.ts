@@ -13,18 +13,21 @@ export interface ShelfButtonPosition {
   startPillarKey: number;
   endPillarKey: number;
   sectionKey: number;
+  shelfKey?: number; // 호버 필터링용 선반 키
 }
 
 export function calculateShelfButtonPositions(
   pillars: Pillar[],
   shelves: Shelf[],
   scaleInfo: ScaleInfo,
-  sections: Section[] = []
+  sections: Section[] = [],
+  hoveredShelfKey: number | null = null
 ): ShelfButtonPosition[] {
+  // debug log removed
   const buttons: ShelfButtonPosition[] = [];
   const store = useRoomStore();
 
-  // 1) 섹션은 있지만 아직 선반이 하나도 없는 경우: 섹션당 1개씩 가운데에 버튼 표시
+  // 1) 섹션은 있지만 아직 선반이 하나도 없는 경우: 섹션당 1개씩 가운데에 버튼 표시 (항상 표시)
   if (shelves.length === 0) {
     const shelfCreateDefaultOffsetMm = store.settings.value.shelfCreateDefaultOffsetMm;
     const defaultHeightMm = shelfCreateDefaultOffsetMm;
@@ -89,7 +92,18 @@ export function calculateShelfButtonPositions(
     }
 
     // 선반이 있는 섹션은 각 선반 위에 페어 버튼 형태로 배치
+    // hoveredShelfKey가 null이면 버튼을 표시하지 않음 (호버 시에만 표시)
     sectionShelves.forEach((shelf) => {
+      // 호버 필터링: hoveredShelfKey가 null이면 버튼 표시 안 함
+      if (hoveredShelfKey === null) {
+        return; // 호버 안 했으면 버튼 표시 안 함
+      }
+
+      // hoveredShelfKey와 일치하는 선반의 버튼만 추가
+      if (shelf.shelfKey !== hoveredShelfKey) {
+        return; // 다른 선반의 버튼은 건너뛰기
+      }
+
       const buttonX = baseCenterXPx - BUTTON_PAIR_HORIZONTAL_OFFSET_PX;
       const buttonHeightMm = shelf.y + ITEM_ADD_BUTTON_OFFSET_MM;
       const buttonY = mmToPxY(buttonHeightMm, scaleInfo);
@@ -100,6 +114,7 @@ export function calculateShelfButtonPositions(
         startPillarKey: startPillar.pillarKey,
         endPillarKey: endPillar.pillarKey,
         sectionKey: section.sectionKey,
+        shelfKey: shelf.shelfKey, // 선반 키 추가
       });
     });
   });
@@ -240,7 +255,7 @@ export function drawSectionDeleteButtons(ctx: CanvasRenderingContext2D, buttons:
     const btnY = button.y - buttonHeight / 2;
 
     // 배경
-    ctx.fillStyle = '#FF4444';
+    ctx.fillStyle = '#B33333';
     ctx.beginPath();
     ctx.moveTo(btnX + borderRadius, btnY);
     ctx.lineTo(btnX + buttonWidth - borderRadius, btnY);
@@ -255,7 +270,7 @@ export function drawSectionDeleteButtons(ctx: CanvasRenderingContext2D, buttons:
     ctx.fill();
 
     // 테두리
-    ctx.strokeStyle = '#CC0000';
+    ctx.strokeStyle = '#8B0000';
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -283,12 +298,23 @@ export function calculateItemAddButtonPositions(
   shelves: Shelf[],
   sections: Section[],
   pillars: Pillar[],
-  scaleInfo: ScaleInfo
+  scaleInfo: ScaleInfo,
+  hoveredShelfKey: number | null = null
 ): ItemAddButtonPosition[] {
   const buttons: ItemAddButtonPosition[] = [];
 
   shelves.forEach((shelf) => {
     if (shelf.sectionKey == null) return;
+
+    // 호버 필터링: hoveredShelfKey가 null이면 버튼 표시 안 함
+    if (hoveredShelfKey === null) {
+      return; // 호버 안 했으면 버튼 표시 안 함
+    }
+
+    // hoveredShelfKey와 일치하는 선반의 버튼만 추가
+    if (shelf.shelfKey !== hoveredShelfKey) {
+      return; // 다른 선반의 버튼은 건너뛰기
+    }
 
     const section = sections.find((s) => s.sectionKey === shelf.sectionKey);
     if (!section) return;
@@ -352,4 +378,3 @@ export function drawItemAddButtons(ctx: CanvasRenderingContext2D, buttons: ItemA
     ctx.fillText('+ 소품', button.x, button.y);
   });
 }
-

@@ -67,7 +67,7 @@ function checkShelfCollision(
   for (const shelf of sectionShelves) {
     const shelfType = shelf.type || 'normal';
     const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
-    const shelfThickness = shelfDimensions.heightMm;
+    const shelfThickness = shelf.thickness ?? shelfDimensions.heightMm;
     const shelfTop = shelf.y + shelfThickness / 2;
     const shelfBottom = shelf.y - shelfThickness / 2;
     const furnitureBottom = furnitureY - furnitureHeight / 2;
@@ -196,7 +196,7 @@ export function calculateAvailableRects(
       
       const shelfType = lowestShelf.type || 'normal';
       const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
-      const shelfThickness = shelfDimensions.heightMm;
+      const shelfThickness = lowestShelf.thickness ?? shelfDimensions.heightMm;
       shelfBottom = lowestShelf.y - shelfThickness / 2;
       bLimit = lowestShelf.b_limit;
       

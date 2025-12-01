@@ -172,7 +172,7 @@ const createSection = (start: Pillar, end: Pillar): Section => ({
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
-const { cornerImages, shelfImages, wallImages } = useImageAssets();
+const { cornerImages, shelfImages, pillarImages, wallImages } = useImageAssets();
 
 // 상품 목록 데이터 (Shelf 타입 사용)
 const shelfProducts = ref<Shelf[]>([]);
@@ -306,6 +306,7 @@ const { scaleInfo, render: renderCanvas } = useRoomCanvasRenderer({
   dragState,
   cornerImages,
   shelfImages,
+  pillarImages,
   wallImages,
   onScaleChange: (info) => emit('scaleChange', info),
   availableRects,
@@ -567,29 +568,15 @@ const handleMouseDown = (e: MouseEvent) => {
       ) {
         const targetSection = sections.find((s: Section) => s.sectionKey === button.sectionKey);
         if (!targetSection) return;
-        
-        // 섹션 중심 구조: 섹션에서 직접 선반 개수 확인
         const shelvesCount = targetSection.shelves.length;
-        
-        if (shelvesCount > 0) {
-          emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
-        } else {
-          console.log('🗑️ 섹션 삭제 시작:', button.sectionKey);
-          store.removeSection(button.sectionKey);
-          // 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
-          setTimeout(async () => {
-            console.log('📸 섹션 삭제 후 스냅샷 캡처 시작');
-            await captureCurrentFaceSnapshot();
-            emit('sectionDeleted');
-          }, 100); // 50ms에서 100ms로 증가
-        }
+        emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
         return;
       }
     }
   }
 
   if (pillars.length >= 2 || sections.length > 0) {
-    const shelfButtons = calculateShelfButtonPositions(pillars, activeFaceShelves.value, scaleInfo.value, sections);
+    const shelfButtons = calculateShelfButtonPositions(pillars, activeFaceShelves.value, scaleInfo.value, sections, store.hoveredShelf.value);
     const settings = store.settings.value;
     const shelfButtonRadius = settings.buttonSizes.shelfAdd.radius;
     for (const button of shelfButtons) {
@@ -616,7 +603,7 @@ const handleMouseDown = (e: MouseEvent) => {
 
   // 소품 추가 버튼 클릭 처리
   if (activeFaceShelves.value.length > 0 && sections.length > 0) {
-    const itemAddButtons = calculateItemAddButtonPositions(activeFaceShelves.value, sections, pillars, scaleInfo.value);
+    const itemAddButtons = calculateItemAddButtonPositions(activeFaceShelves.value, sections, pillars, scaleInfo.value, store.hoveredShelf.value);
     const buttonWidth = 50;
     const buttonHeight = 20;
     for (const button of itemAddButtons) {
@@ -696,7 +683,12 @@ const handleMouseDown = (e: MouseEvent) => {
     const startX = mmToPxX(startPillar.x, scaleInfo.value);
     const endX = mmToPxX(endPillar.x, scaleInfo.value);
     const shelfY = mmToPxY(shelf.y, scaleInfo.value);
-    const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
+
+    // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+    const shelfType = (shelf.type || 'normal') as 'normal' | 'hanger' | 'drawer';
+    const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+    const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+    const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
 
     if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
       emit('objectSelect', 'shelf', shelf.shelfKey);
@@ -740,6 +732,66 @@ const handleMouseDown = (e: MouseEvent) => {
 };
 
 /**
+ * 마우스 위치에서 선반 호버 감지 (버튼 표시 제어용)
+ */
+const detectShelfHover = (x: number, y: number) => {
+  if (!scaleInfo.value) return;
+
+  const sections = activeFaceSections.value;
+  const pillars = activeFacePillars.value;
+
+  // 선반 호버 감지
+  let foundHover = false;
+  for (const shelf of activeFaceShelves.value) {
+    if (shelf.sectionKey == null) continue;
+    const section = sections.find((s: Section) => s.sectionKey === shelf.sectionKey);
+    if (!section) continue;
+    const startPillar = pillars.find((p: Pillar) => p.pillarKey === section.startPillarKey);
+    const endPillar = pillars.find((p: Pillar) => p.pillarKey === section.endPillarKey);
+    if (!startPillar || !endPillar) continue;
+
+    const startX = mmToPxX(startPillar.x, scaleInfo.value);
+    const endX = mmToPxX(endPillar.x, scaleInfo.value);
+    const shelfY = mmToPxY(shelf.y, scaleInfo.value);
+
+    // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+    const shelfType = (shelf.type || 'normal') as 'normal' | 'hanger' | 'drawer';
+    const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+    const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+    const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
+
+    // 선반 영역 + 위쪽 버튼 영역(220mm 위)까지 호버 영역에 포함
+    const buttonOffsetPx = (220 / 1000) * scaleInfo.value.scaleY; // ITEM_ADD_BUTTON_OFFSET_MM를 픽셀로 변환
+    const buttonHeight = 20; // 버튼 높이
+    const buttonTopMargin = 50; // 버튼 위쪽 추가 여유
+    const hoverAreaTop = shelfY - buttonOffsetPx - buttonHeight - buttonTopMargin; // 버튼 위치 + 버튼 높이 + 여유
+    const hoverAreaBottom = shelfY + shelfThickness / 2 + 5;
+
+    // debug log removed
+
+    if (x >= startX && x <= endX && y >= hoverAreaTop && y <= hoverAreaBottom) {
+      foundHover = true;
+      // 이전 값과 다를 때만 업데이트 (불필요한 렌더링 방지)
+      if (store.hoveredShelf.value !== shelf.shelfKey) {
+        console.log('[HOVER] 선반 호버 감지:', shelf.shelfKey);
+        store.setHoveredShelfKey(shelf.shelfKey);
+      }
+      return;
+    }
+  }
+
+  if (!foundHover) {
+    // debug log removed
+  }
+
+  // 선반 위에 없으면 null로 설정 (이전 값과 다를 때만)
+  if (store.hoveredShelf.value !== null) {
+    console.log('[HOVER] 선반 호버 해제');
+    store.setHoveredShelfKey(null);
+  }
+};
+
+/**
  * 드래그 중에는 기둥 X 좌표 또는 선반 높이를 실시간으로 계산해 반영합니다.
  */
 const handleMouseMove = (e: MouseEvent) => {
@@ -751,6 +803,11 @@ const handleMouseMove = (e: MouseEvent) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+
+  // 드래그 중이 아닐 때만 선반 호버 감지 (type이 null 또는 'none'일 때)
+  if (!dragState.value.type || dragState.value.type === 'none') {
+    detectShelfHover(x, y);
+  }
 
   // 소품 드래그
   if (dragState.value.type === 'accessory' && dragState.value.targetKey != null) {
@@ -1178,26 +1235,39 @@ const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
   ): number | null => {
     const sorted = [...accessories].filter((a) => a.xMm != null).sort((a, b) => (a.xMm ?? 0) - (b.xMm ?? 0));
     let cursor = startXMm;
+    const desiredCenter = startXMm + (endXMm - startXMm) / 2;
 
+    // gaps 계산
+    const gaps: Array<{ start: number; end: number }> = [];
     for (const acc of sorted) {
       const accStart = acc.xMm ?? startXMm;
       const accEnd = accStart + acc.widthMm;
-
-      if (accStart - cursor >= widthMm) {
-        const candidate = snapWithin(cursor, cursor, accStart - widthMm);
-        if (candidate + widthMm <= accStart) {
-          return candidate;
-        }
+      if (accStart - cursor > 0) {
+        gaps.push({ start: cursor, end: accStart });
       }
-
       cursor = Math.max(cursor, accEnd);
     }
 
     if (endXMm - cursor >= widthMm) {
-      return snapWithin(cursor, cursor, endXMm - widthMm);
+      gaps.push({ start: cursor, end: endXMm });
     }
 
-    return null;
+    if (gaps.length === 0) return null;
+
+    let best: { x: number; dist: number } | null = null;
+    for (const gap of gaps) {
+      const usableWidth = gap.end - gap.start;
+      if (usableWidth < widthMm) continue;
+      const desiredStart = desiredCenter - widthMm / 2;
+      const candidate = snapWithin(desiredStart, gap.start, gap.end - widthMm);
+      const center = candidate + widthMm / 2;
+      const dist = Math.abs(center - desiredCenter);
+      if (!best || dist < best.dist) {
+        best = { x: candidate, dist };
+      }
+    }
+
+    return best ? best.x : null;
   };
 
   const updatedSections = activeFaceSections.value.map((section: Section) => {
@@ -1215,7 +1285,7 @@ const handleAccessorySelectFromAddModal = (product: AccessoryProduct) => {
         return shelf;
       }
 
-      const shelfThickness = (shelf.type && FURNITURE_DIMENSIONS[shelf.type]) ? FURNITURE_DIMENSIONS[shelf.type].heightMm : 0;
+      const shelfThickness = shelf.thickness ?? ((shelf.type && FURNITURE_DIMENSIONS[shelf.type]) ? FURNITURE_DIMENSIONS[shelf.type].heightMm : 0);
       const accessoryCenterY = shelf.y + shelfThickness / 2 + product.heightMm / 2;
 
       accessories.push({
@@ -1371,8 +1441,12 @@ const handleShelfSelectFromAddModal = (product: Shelf) => {
     x: shelfLength,
     y: newHeightMm,
     z: 0,
+    thickness: product.thickness,
     t_limit: product.t_limit,
     b_limit: product.b_limit,
+    material: product.material,
+    materialName: product.materialName,
+    image: product.image,
   };
 
   console.log('✅ 선반 생성:', {
@@ -1532,13 +1606,14 @@ const handleFaceRotate = async (direction: 'left' | 'right') => {
     if (canvasRef.value && scaleInfo.value) {
       try {
         const currentFace = store.getFaceState(currentFaceId);
-        
-        // 빈 면인지 확인 (기둥, 섹션, 선반이 모두 없으면 빈 면)
-        const hasFurniture = currentFace.pillars.length > 0 || 
-                            currentFace.sections.length > 0;
-        
+
+        // 빈 면인지 확인 (기둥, 섹션, 선반, 가구가 모두 없으면 빈 면)
+        const hasContent = currentFace.pillars.length > 0 ||
+                          currentFace.sections.length > 0 ||
+                          currentFace.furnitures.length > 0;
+
         // 빈 면은 스냅샷 캡처하지 않음
-        if (!hasFurniture) {
+        if (!hasContent) {
           console.log(`면 ${currentFaceId} 스냅샷 생략 (빈 면)`);
         } else {
           const { calculateFaceContentHash } = await import('../modules/roomCanvas/models/roomFace');

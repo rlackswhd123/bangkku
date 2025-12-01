@@ -1,12 +1,15 @@
 // useImageAssets.ts: 코너/선반 PNG 리소스를 비동기로 로드해 공유하는 훅
 import { ref, onMounted } from 'vue';
+import productsData from '../../../data/products.json';
 
 type CornerImageKey = 111 | 222 | 333 | 444;
 type ShelfImageKey = 'normal' | 'drawer' | 'hanger';
+type PillarImageKey = 'RS' | 'CS' | 'DU';
 type WallImageKey = 'front' | 'left' | 'right';
 
 export type CornerImages = Record<CornerImageKey, HTMLImageElement | null>;
 export type ShelfImages = Record<ShelfImageKey, HTMLImageElement | null>;
+export type PillarImages = Record<PillarImageKey, HTMLImageElement | null>;
 export type WallImages = Record<WallImageKey, HTMLImageElement | null>;
 
 const INITIAL_CORNER_IMAGES: CornerImages = {
@@ -20,6 +23,12 @@ const INITIAL_SHELF_IMAGES: ShelfImages = {
   normal: null,
   drawer: null,
   hanger: null,
+};
+
+const INITIAL_PILLAR_IMAGES: PillarImages = {
+  RS: null,
+  CS: null,
+  DU: null,
 };
 
 const INITIAL_WALL_IMAGES: WallImages = {
@@ -37,11 +46,25 @@ const CORNER_IMAGE_PATHS: Record<CornerImageKey, string> = {
 
 const CORNER_IMAGE_KEYS: CornerImageKey[] = [111, 222, 333, 444];
 
-const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string> = {
-  normal: new URL('../../../images/pillar/일반_선반.png', import.meta.url).href,
-  drawer: new URL('../../../images/pillar/서랍_선반.png', import.meta.url).href,
-  hanger: new URL('../../../images/pillar/옷걸이_선반.png', import.meta.url).href,
+const shelfProducts: Array<{ type: ShelfImageKey; image?: string }> = (productsData as any)?.shelves ?? [];
+const pickImageForType = (type: ShelfImageKey): string | null => {
+  const found = shelfProducts.find((p) => p.type === type && p.image);
+  return found?.image ?? null;
 };
+
+const SHELF_IMAGE_PATHS: Record<ShelfImageKey, string | null> = {
+  normal: pickImageForType('normal'),
+  drawer: pickImageForType('drawer'),
+  hanger: pickImageForType('hanger'),
+};
+
+const PILLAR_IMAGE_PATHS: Record<PillarImageKey, string> = {
+  RS: new URL('../../../images/pillar/RS.png', import.meta.url).href,
+  CS: new URL('../../../images/pillar/CS.png', import.meta.url).href,
+  DU: new URL('../../../images/pillar/DU.png', import.meta.url).href,
+};
+
+const PILLAR_IMAGE_KEYS: PillarImageKey[] = ['RS', 'CS', 'DU'];
 
 const SHELF_IMAGE_KEYS: ShelfImageKey[] = ['normal', 'drawer', 'hanger'];
 
@@ -67,6 +90,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
 export function useImageAssets() {
   const cornerImages = ref<CornerImages>({ ...INITIAL_CORNER_IMAGES });
   const shelfImages = ref<ShelfImages>({ ...INITIAL_SHELF_IMAGES });
+  const pillarImages = ref<PillarImages>({ ...INITIAL_PILLAR_IMAGES });
   const wallImages = ref<WallImages>({ ...INITIAL_WALL_IMAGES });
 
   onMounted(() => {
@@ -85,9 +109,11 @@ export function useImageAssets() {
       .catch(console.error);
 
     Promise.all(
-      SHELF_IMAGE_KEYS.map((key) =>
-        loadImage(SHELF_IMAGE_PATHS[key]).then((image) => ({ key, image }))
-      )
+      SHELF_IMAGE_KEYS.map((key) => {
+        const path = SHELF_IMAGE_PATHS[key];
+        if (!path) return Promise.resolve({ key, image: null });
+        return loadImage(path).then((image) => ({ key, image }));
+      })
     )
       .then((loaded) => {
         const mapped = loaded.reduce<ShelfImages>((acc, { key, image }) => {
@@ -95,6 +121,20 @@ export function useImageAssets() {
           return acc;
         }, { ...INITIAL_SHELF_IMAGES });
         shelfImages.value = mapped;
+      })
+      .catch(console.error);
+
+    Promise.all(
+      PILLAR_IMAGE_KEYS.map((key) =>
+        loadImage(PILLAR_IMAGE_PATHS[key]).then((image) => ({ key, image }))
+      )
+    )
+      .then((loaded) => {
+        const mapped = loaded.reduce<PillarImages>((acc, { key, image }) => {
+          acc[key] = image;
+          return acc;
+        }, { ...INITIAL_PILLAR_IMAGES });
+        pillarImages.value = mapped;
       })
       .catch(console.error);
 
@@ -113,5 +153,5 @@ export function useImageAssets() {
       .catch(console.error);
   });
 
-  return { cornerImages, shelfImages, wallImages };
+  return { cornerImages, shelfImages, pillarImages, wallImages };
 }

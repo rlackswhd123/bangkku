@@ -1,6 +1,7 @@
 // placement.ts: 바닥 가구 배치 가능 공간 계산 유틸리티
 
 import type { PlacementRect, FilteredPlacementRect, Section, Pillar } from '../types';
+import { FURNITURE_DIMENSIONS } from '../types';
 
 /**
  * 특정 벽면(face)의 모든 배치 가능한 공간(rect)을 계산합니다.
@@ -156,7 +157,7 @@ export function calculatePlacementRects(
   const emptyWallWidth = faceWidthMm - lastPillar.x;
 
   if (emptyWallWidth > 0) {
-    // 2-1. 빈 벽 영역 단독
+    // 빈 벽 영역 단독 (가장 오른쪽만)
     rects.push({
       x: lastPillar.x,
       y: 0,
@@ -168,40 +169,42 @@ export function calculatePlacementRects(
       lowestShelfY: undefined,
       affectedShelves: [],
     });
+  }
 
-    // 2-2. 각 칸 조합 + 빈 벽 영역
-    for (let startIdx = 0; startIdx < sections.length; startIdx++) {
-      for (let endIdx = startIdx; endIdx < sections.length; endIdx++) {
-        const combinedSections = sections.slice(startIdx, endIdx + 1);
-        const sectionIndices = Array.from({ length: endIdx - startIdx + 1 }, (_, i) => startIdx + i);
+  // 3. 가장 오른쪽에 위치한 선반을 기준으로 오른쪽 벽 끝까지 확장하는 rect 추가
+  const shelvesWithSection = sections.flatMap(section =>
+    section.shelves.map(shelf => ({ shelf, section }))
+  );
 
-        // 시작 x: 첫 번째 칸의 시작 기둥 x
-        const startPillar = pillars.find(p => p.pillarKey === combinedSections[0].startPillarKey);
-        
-        if (!startPillar) continue;
+  if (shelvesWithSection.length > 0) {
+    const pillarXMap = new Map<number, number>();
+    sortedPillars.forEach(p => pillarXMap.set(p.pillarKey, p.x));
 
-        const rectX = startPillar.x;
-        const rectWidth = faceWidthMm - startPillar.x;
+    const rightmost = shelvesWithSection.reduce((acc, cur) => {
+      const accEnd = pillarXMap.get(acc.section.endPillarKey) ?? -Infinity;
+      const curEnd = pillarXMap.get(cur.section.endPillarKey) ?? -Infinity;
+      return curEnd > accEnd ? cur : acc;
+    }, shelvesWithSection[0]);
 
-        // 칸들의 선반들 중 가장 낮은 y 위치 (빈 벽은 선반 없으므로 고려 안함)
-        const allShelves = combinedSections.flatMap(s => s.shelves);
-        const lowestShelfY = allShelves.length > 0
-          ? Math.min(...allShelves.map(shelf => shelf.y))
-          : undefined;
+    const startX = pillarXMap.get(rightmost.section.startPillarKey);
+    const endX = faceWidthMm;
+    if (startX !== undefined && endX > startX) {
+      const type = rightmost.shelf.type || 'normal';
+      const dim = FURNITURE_DIMENSIONS[type];
+      const thickness = rightmost.shelf.thickness ?? dim.heightMm;
+      const shelfBottom = rightmost.shelf.y - thickness / 2;
 
-        // 빈 벽은 선반이 없지만, 칸의 선반이 높이를 제약함
-        const rectHeight = lowestShelfY !== undefined ? lowestShelfY : roomHeightMm;
-
+      if (shelfBottom > 0) {
         rects.push({
-          x: rectX,
+          x: startX,
           y: 0,
-          width: rectWidth,
-          height: rectHeight,
+          width: endX - startX,
+          height: shelfBottom,
           faceId,
-          sectionIndices,
+          sectionIndices: [],
           isEmptyWallIncluded: true,
-          lowestShelfY,
-          affectedShelves: allShelves.map(s => s.shelfKey),
+          lowestShelfY: shelfBottom,
+          affectedShelves: [rightmost.shelf.shelfKey],
         });
       }
     }

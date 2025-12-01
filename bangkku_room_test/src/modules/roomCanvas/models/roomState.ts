@@ -106,13 +106,37 @@ function sortAllShelves(state: MultiRoomState): MultiRoomState {
 }
 
 /**
+ * 면 상태에서 projectedSnapshot 제거 (저장용)
+ */
+function removeFaceSnapshots(face: RoomFaceState): RoomFaceState {
+  const { projectedSnapshot, ...faceWithoutSnapshot } = face;
+  return faceWithoutSnapshot as RoomFaceState;
+}
+
+/**
+ * 모든 면에서 projectedSnapshot 제거
+ */
+function removeAllSnapshots(state: MultiRoomState): MultiRoomState {
+  return {
+    ...state,
+    faces: {
+      1: removeFaceSnapshots(state.faces[1]),
+      2: removeFaceSnapshots(state.faces[2]),
+      3: removeFaceSnapshots(state.faces[3]),
+      4: removeFaceSnapshots(state.faces[4]),
+    },
+  };
+}
+
+/**
  * 방 상태 직렬화 (저장용)
- * 저장 전에 선반들을 y 좌표 기준으로 정렬합니다.
+ * 저장 전에 선반들을 y 좌표 기준으로 정렬하고, projectedSnapshot을 제거합니다.
  */
 export function serializeRoomState(state: MultiRoomState): string {
-  // 저장 직전에 선반 정렬
+  // 저장 직전에 선반 정렬 및 스냅샷 제거
   const sortedState = sortAllShelves(state);
-  return JSON.stringify(sortedState, null, 2);
+  const stateWithoutSnapshots = removeAllSnapshots(sortedState);
+  return JSON.stringify(stateWithoutSnapshots, null, 2);
 }
 
 /**
