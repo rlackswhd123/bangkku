@@ -1,6 +1,6 @@
 // useRoomCanvasRenderer.ts: Canvas 렌더 파이프라인과 커서 업데이트 훅을 제공
 import { ref, watch, Ref, onMounted, onUnmounted, unref } from 'vue';
-import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessory } from '../../../types';
+import { DragState, Pillar, RoomState, ScaleInfo, Shelf, Section, PlacedAccessory, FURNITURE_DIMENSIONS } from '../../../types';
 import { calculateScale, mmToPxX, mmToPxY } from '../../../utils/coordinates';
 import { useRoomStore } from '../store';
 import { FaceId, getPhysicalAdjacentFace, isFaceActiveInShape } from '../models/roomShape';
@@ -610,9 +610,32 @@ export function useCursorUpdater(
       const startX = mmToPxX(startPillar.x, scaleInfo.value);
       const endX = mmToPxX(endPillar.x, scaleInfo.value);
       const shelfY = mmToPxY(shelf.y, scaleInfo.value);
-      const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
 
-      if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
+      // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+      const shelfType = shelf.type || 'normal';
+      const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+      const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+      const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
+
+      const topBoundary = shelfY - shelfThickness / 2 - 5;
+      const bottomBoundary = shelfY + shelfThickness / 2 + 5;
+
+      // 디버그 로그 - 선반 근처 50px 범위 내에서만 출력
+      const nearShelf = x >= startX && x <= endX && Math.abs(y - shelfY) < 50;
+      if (nearShelf) {
+        const isInRange = y >= topBoundary && y <= bottomBoundary;
+        console.log(`🖱️ 선반#${shelf.shelfKey} [${shelfType}] ${isInRange ? '✅ 호버됨' : '❌ 범위밖'}:`, {
+          mouseY: Math.round(y),
+          shelfCenterY: Math.round(shelfY),
+          thicknessMm: shelfThicknessMm,
+          thicknessPx: Math.round(shelfThickness),
+          range: `${Math.round(topBoundary)} ~ ${Math.round(bottomBoundary)}`,
+          위쪽여유: Math.round(y - topBoundary),
+          아래쪽여유: Math.round(bottomBoundary - y)
+        });
+      }
+
+      if (x >= startX && x <= endX && y >= topBoundary && y <= bottomBoundary) {
         canvas.style.cursor = 'ns-resize';
         return;
       }

@@ -23,7 +23,7 @@ export function calculateShelfButtonPositions(
   sections: Section[] = [],
   hoveredShelfKey: number | null = null
 ): ShelfButtonPosition[] {
-  console.log('[BUTTONS] calculateShelfButtonPositions - hoveredShelfKey:', hoveredShelfKey, 'shelves count:', shelves.length);
+  // debug log removed
   const buttons: ShelfButtonPosition[] = [];
   const store = useRoomStore();
 
@@ -378,4 +378,3 @@ export function drawItemAddButtons(ctx: CanvasRenderingContext2D, buttons: ItemA
     ctx.fillText('+ 소품', button.x, button.y);
   });
 }
-

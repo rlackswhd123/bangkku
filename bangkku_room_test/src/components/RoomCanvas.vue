@@ -697,7 +697,12 @@ const handleMouseDown = (e: MouseEvent) => {
     const startX = mmToPxX(startPillar.x, scaleInfo.value);
     const endX = mmToPxX(endPillar.x, scaleInfo.value);
     const shelfY = mmToPxY(shelf.y, scaleInfo.value);
-    const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
+
+    // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+    const shelfType = (shelf.type || 'normal') as 'normal' | 'hanger' | 'drawer';
+    const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+    const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+    const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
 
     if (x >= startX && x <= endX && y >= shelfY - shelfThickness / 2 - 5 && y <= shelfY + shelfThickness / 2 + 5) {
       emit('objectSelect', 'shelf', shelf.shelfKey);
@@ -762,7 +767,12 @@ const detectShelfHover = (x: number, y: number) => {
     const startX = mmToPxX(startPillar.x, scaleInfo.value);
     const endX = mmToPxX(endPillar.x, scaleInfo.value);
     const shelfY = mmToPxY(shelf.y, scaleInfo.value);
-    const shelfThickness = PILLAR_SHELF_CONSTRAINTS.SHELF_THICKNESS_PX;
+
+    // 실제 선반 두께 계산 (이미지 크기에 맞춤)
+    const shelfType = (shelf.type || 'normal') as 'normal' | 'hanger' | 'drawer';
+    const shelfDimensions = FURNITURE_DIMENSIONS[shelfType];
+    const shelfThicknessMm = shelf.thickness ?? shelfDimensions.heightMm;
+    const shelfThickness = shelfThicknessMm * scaleInfo.value.scaleY;
 
     // 선반 영역 + 위쪽 버튼 영역(220mm 위)까지 호버 영역에 포함
     const buttonOffsetPx = (220 / 1000) * scaleInfo.value.scaleY; // ITEM_ADD_BUTTON_OFFSET_MM를 픽셀로 변환
@@ -771,7 +781,7 @@ const detectShelfHover = (x: number, y: number) => {
     const hoverAreaTop = shelfY - buttonOffsetPx - buttonHeight - buttonTopMargin; // 버튼 위치 + 버튼 높이 + 여유
     const hoverAreaBottom = shelfY + shelfThickness / 2 + 5;
 
-    console.log('[HOVER DEBUG] shelf:', shelf.shelfKey, 'x:', x, 'y:', y, 'area:', { startX, endX, hoverAreaTop, hoverAreaBottom, shelfY });
+    // debug log removed
 
     if (x >= startX && x <= endX && y >= hoverAreaTop && y <= hoverAreaBottom) {
       foundHover = true;
@@ -785,7 +795,7 @@ const detectShelfHover = (x: number, y: number) => {
   }
 
   if (!foundHover) {
-    console.log('[HOVER DEBUG] 호버 영역 벗어남');
+    // debug log removed
   }
 
   // 선반 위에 없으면 null로 설정 (이전 값과 다를 때만)
