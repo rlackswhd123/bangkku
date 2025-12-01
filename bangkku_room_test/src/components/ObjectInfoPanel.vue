@@ -78,8 +78,8 @@
         <span :style="styles.infoValue">{{ shelfInfo.lengthMm }}mm</span>
       </div>
       <div :style="styles.infoItem">
-        <span :style="styles.infoLabel">높이:</span>
-        <span :style="styles.infoValue">{{ shelfInfo.heightMm }}mm</span>
+        <span :style="styles.infoLabel">두께:</span>
+        <span :style="styles.infoValue">{{ shelfInfo.thicknessMm }}mm</span>
       </div>
     </div>
 
