@@ -568,22 +568,8 @@ const handleMouseDown = (e: MouseEvent) => {
       ) {
         const targetSection = sections.find((s: Section) => s.sectionKey === button.sectionKey);
         if (!targetSection) return;
-        
-        // 섹션 중심 구조: 섹션에서 직접 선반 개수 확인
         const shelvesCount = targetSection.shelves.length;
-        
-        if (shelvesCount > 0) {
-          emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
-        } else {
-          console.log('🗑️ 섹션 삭제 시작:', button.sectionKey);
-          store.removeSection(button.sectionKey);
-          // 섹션 삭제 후 스냅샷 캡처 (Vue의 nextTick과 추가 대기로 렌더링 완료 보장)
-          setTimeout(async () => {
-            console.log('📸 섹션 삭제 후 스냅샷 캡처 시작');
-            await captureCurrentFaceSnapshot();
-            emit('sectionDeleted');
-          }, 100); // 50ms에서 100ms로 증가
-        }
+        emit('sectionDeleteRequest', button.sectionKey, shelvesCount);
         return;
       }
     }
